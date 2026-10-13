@@ -1,0 +1,4 @@
+,latency_s,latency_s,latency_s,response_amplitude_px,response_amplitude_px,response_amplitude_px
+,count,mean,std,count,mean,std
+record_type,,,,,,
+A,1,0.5,,1,18.08783896576201,

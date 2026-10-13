@@ -1,0 +1,123 @@
+# ---------------------------------------------------------------------------
+# Single configuration file of the pipeline.
+# To process a different recording, only `video_path` has to change
+# (it can also be overridden with the environment variable PSIB_VIDEO_PATH).
+# ---------------------------------------------------------------------------
+
+# Video processed by the pipeline (Module 1 onwards)
+video_path: "data/A_1.mp4"
+
+# Folder with all the recordings (Module 0 inventories it).
+# Can be overridden with the environment variable PSIB_VIDEO_DIR.
+video_dir: "data"
+video_patterns: ["A_*.mp4", "B_*.mp4"]
+
+# Where tables and figures are written (relative to this file)
+output_dir: "results"
+
+# ---------------------------------------------------------------------------
+# Frames used in Module 1
+# ---------------------------------------------------------------------------
+frames:
+  primary_time_s: 1.0     # working frame (baseline, before the stimulus in A_n videos)
+  secondary_time_s: 5.0   # second frame (magnitude/phase swapping, comparisons)
+
+# ---------------------------------------------------------------------------
+# Region of interest (pixels, measured on the decoded frame, origin top-left)
+#   mode: manual       -> use x, y, w, h below
+#   mode: interactive  -> opens a window (cv2.selectROI) to draw the box;
+#                         the notebook prints the values to paste here
+# The values below were tuned for the sample video A_1.mp4 (560x672 px).
+# ---------------------------------------------------------------------------
+roi:
+  mode: manual
+  x: 120
+  y: 290
+  w: 360
+  h: 260
+
+# ---------------------------------------------------------------------------
+# Module 0
+# ---------------------------------------------------------------------------
+module0:
+  expected_duration_s: 30.0
+  duration_tolerance_s: 5.0
+  min_records_per_type: 2
+  max_records_per_type: 3
+  brightness_downscale: 0.25     # frame downscale used for the brightness-vs-time preview
+  brightness_smooth_frames: 5
+
+# ---------------------------------------------------------------------------
+# Module 1
+# ---------------------------------------------------------------------------
+module1:
+  seed: 0
+  downsample_factors: [0.5, 0.25, 0.05]
+  quantization_bits: [4, 2]
+  brightness_offset: 50
+  contrast_factor: 1.5
+  # linear range scaling [f1, f2] taken as percentiles of the gray ROI
+  # (low percentiles = pupil + iris; the bright sclera is saturated on purpose)
+  range_percentiles: [1, 60]
+  clahe: {clip_limit: 2.0, tile_grid: 8}
+  noise:
+    gaussian_sigma: 15
+    salt_pepper_amount: 0.05
+    speckle_sigma: 0.25
+  filters:
+    kernel: 5            # mean and median kernel size (odd)
+    gaussian_sigma: 1.5
+  reflection_kernels: [5, 9, 15]   # kernel sizes tested for flash-reflection suppression
+  edges:
+    prefilter: gaussian  # filter applied before edge detection: mean | median | gaussian
+    percentile: 90       # gradient operators are binarised keeping the top (100-p)% pixels
+    canny: {low: 40, high: 120}
+  frequency:
+    cutoff: 0.08         # cut-off frequency in cycles/pixel
+    butterworth_order: 2
+
+# Ruler endpoints are selected on the full upright frame, never on a resized ROI.
+# Keep enabled false for A_1 (no ruler). Each video requires its own calibration.
+calibration:
+  enabled: false
+  mode: manual          # manual | interactive
+  frame_time_s: 1.0
+  distance_cm: 1.0
+  points_xy: null        # [[x1, y1], [x2, y2]] spanning exactly distance_cm
+
+module2:
+  method: snake         # provisional choice; validate against manual references
+  clusters: [2, 3, 4, 5]
+  snake_iterations: 250
+  morphology_radius: 2
+  min_component_size: 30
+  # ROI-local pupil seeds/initial snake radii tuned for A_1; adjust for new videos.
+  initializations:
+    - {center_xy: [190, 140], radius_px: 45}
+    - {center_xy: [150, 140], radius_px: 35}
+  # Optional .npy boolean reference masks matching each cropped ROI exactly.
+  reference_masks: [null, null]
+
+module3:
+  tracking_method: snake  # kmeans | watershed | snake; provisional, verify overlays
+  texture_levels: 32
+  snake_iterations: 250
+  morphology_radius: 2
+  min_area_px2: 300
+  max_area_px2: 15000
+  max_relative_diameter_step: 0.25
+  max_center_speed_px_s: 300
+  min_pupil_contrast: 2
+  preview_stride: 25
+  max_gap_s: 0.15
+  smooth_window_s: 0.15
+  stimulus_time_s: null   # set a visually confirmed time; null estimates from brightness
+  record_type: null       # null infers A/B from filename
+  baseline_window_s: 1.0
+  min_baseline_frames: 10
+  response_window_s: 5.0
+  relative_onset_threshold: 0.05
+  noise_multiplier: 3.0
+  onset_hold_s: 0.10
+  # Optional CSV: frame_index, area_px2, equivalent_diameter_px (either measurement).
+  manual_measurements_csv: null
