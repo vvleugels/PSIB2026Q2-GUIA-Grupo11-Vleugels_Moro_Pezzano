@@ -25,11 +25,6 @@ def adjust_contrast(img: np.ndarray, factor: float) -> np.ndarray:
     return np.clip(np.rint(img.astype(np.float32) * factor), 0, 255).astype(np.uint8)
 
 
-def clipped_fraction(img: np.ndarray) -> float:
-    """Fraction of samples saturated at 0 or 255."""
-    return float(np.mean((img == 0) | (img == 255)))
-
-
 def percentile_range(gray: np.ndarray, p_low: float, p_high: float) -> tuple[float, float]:
     f1, f2 = np.percentile(gray, [p_low, p_high])
     return float(f1), float(f2)

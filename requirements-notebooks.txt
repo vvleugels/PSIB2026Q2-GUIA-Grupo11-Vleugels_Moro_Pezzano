@@ -1,0 +1,3 @@
+# Optional browser-based notebook authoring; desktop execution uses requirements.txt.
+-r requirements.txt
+jupyterlab>=4.0

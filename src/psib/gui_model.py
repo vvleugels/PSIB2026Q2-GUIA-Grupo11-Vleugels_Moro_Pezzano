@@ -13,6 +13,7 @@ from .roi import tracked_frame_rois
 
 @dataclass
 class Setup:
+    """Per-video selections in original pixels; pupil coordinates are crop-local."""
     video: str
     width: int
     height: int
@@ -27,6 +28,7 @@ class Setup:
     pupils: list = field(default_factory=lambda: [None, None])
 
     def change_geometry(self, times=None, roi_enabled=None, roi=None):
+        """Invalidate selections whose coordinate system or reference frame changed."""
         changed=False
         if times is not None and list(times)!=self.times:
             self.times=list(times); self.ruler_points=None; changed=True
@@ -37,6 +39,7 @@ class Setup:
         if changed: self.pupils=[None,None]
 
     def missing(self):
+        """Return user-facing reasons why this setup cannot execute safely yet."""
         errors=[]
         if not Path(self.video).is_file(): errors.append('Choose an existing video')
         elif ProfileStore.fingerprint(self.video)!=self.fingerprint: errors.append('Video changed: reopen it and redo image selections')
@@ -82,6 +85,7 @@ class CanvasGeometry:
 
 
 class ProfileStore:
+    """Persist local JSON profiles; reject profiles for changed video metadata."""
     def __init__(self,root): self.root=Path(root)
 
     @staticmethod
@@ -120,6 +124,11 @@ def prepare_views(setup,base):
 
 
 def effective_config(setup,base,output_dir,project_root):
+    """Build an isolated manual run config without modifying base or setup.
+
+    GUI runs clear manual-reference paths to avoid cross-video annotation reuse.
+    Disabled calibration removes ruler endpoints from the effective run.
+    """
     errors=setup.missing()
     if errors:raise ValueError('; '.join(errors))
     cfg=deepcopy(base)

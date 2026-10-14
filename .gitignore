@@ -42,3 +42,9 @@ Thumbs.db
 
 # Desktop GUI's local per-video selections
 .psib_gui/
+
+# Reproducible heavyweight GUI-validation artifacts (keep summaries/configs/CSVs)
+results/gui_validation/**/figures/
+results/gui_validation/**/*.npy
+results/gui_validation/**/validation/*.ipynb
+results/gui_validation/**/validation/*.html

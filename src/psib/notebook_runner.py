@@ -59,6 +59,13 @@ async def run_client(client, env):
 
 
 def execute_notebooks(project_root,paths,config_path=None,output_dir=None,emit=None):
+    """Execute in order and return complete/failed/cancelled state.
+
+    Relative notebook paths resolve under project_root/notebooks. output_dir
+    controls executed copies/reports; configuration output_dir controls tables
+    and figures. emit receives progress dictionaries with zero-based cell indices.
+    Partial outputs survive errors; source notebooks are never rewritten here.
+    """
     root=Path(project_root).resolve()
     config_path=Path(config_path).resolve() if config_path else root/'config.yaml'
     cfg=yaml.safe_load(config_path.read_text())

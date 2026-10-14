@@ -10,7 +10,13 @@ from .segmentation import morphology_variants, mask_measurements, select_compone
 
 
 def track_video(path, roi, center_xy, radius_px, options, scale=None):
-    """Track with independent dark-region reacquisition; preserve rejected measurements."""
+    """Track eye motion and independently segment the pupil in original pixels.
+
+    roi and its crop-local center belong to roi_reference_time_s. A full-frame
+    ROI uses a smaller internal motion support region without cropping the
+    measurement image. scale is pixels/cm or None. Return (per-frame DataFrame,
+    preview tuples); rejected raw measurements remain with reason/quality flags.
+    """
     eye_options=options.get('eye_tracking', {})
     use_eye_tracking=eye_options.get('enabled', True)
     reference,_,_=read_frame_at_time(path,options.get('roi_reference_time_s',1.0))
@@ -22,12 +28,9 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
         right,bottom=min(reference.shape[1],int(cx+r)),min(reference.shape[0],int(cy+r))
         support_roi=(left,top,right-left,bottom-top)
     tracker=EyeTracker(reference,support_roi,eye_options) if use_eye_tracking else None
-    anchor_roi=tracker.anchor_roi if tracker else tuple(roi)
     seed_full=np.array([roi[0]+center_xy[0],roi[1]+center_xy[1]],float)
     cap = _open(path)
     theta=np.linspace(0,2*np.pi,200,endpoint=False)
-    x,y=center_xy
-    contour=np.column_stack([y+radius_px*np.sin(theta),x+radius_px*np.cos(theta)])
     rows=[]; previews=[]; previous=None; previous_time=None; last_t=-np.inf
     pending=None; pending_count=0
     try:
@@ -52,8 +55,6 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
             gray=filters.gaussian(cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY),sigma=1.5)
             if previous is not None:
                 x,y=previous['centroid_anchor_x_px']+eye_shift[0]-current_roi[0],previous['centroid_anchor_y_px']+eye_shift[1]-current_roi[1]
-                radius=radius_px
-                contour=np.column_stack([y+radius*np.sin(theta),x+radius*np.cos(theta)])
             if options.get('tracking_method') == 'local_otsu':
                 mask=local_pupil_mask(rgb,expected_seed,radius_px,
                     options.get('pupil_threshold_classes',3),options.get('pupil_search_radius_factor',1.8),options['min_area_px2'])

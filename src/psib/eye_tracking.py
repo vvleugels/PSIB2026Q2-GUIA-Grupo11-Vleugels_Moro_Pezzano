@@ -37,7 +37,6 @@ class EyeTracker:
         self.shape=reference_rgb.shape[:2]
         self.anchor_roi=expanded_roi(roi,self.shape,int(self.options.get('margin_px',10)))
         self.gray=self._normalized(cv2.cvtColor(reference_rgb,cv2.COLOR_RGB2GRAY))
-        self.anchor_gray=self.gray.copy()
         self.shift=np.zeros(2,dtype=float)
         self.relative_scale=1.0
         self.rotation_deg=0.0
