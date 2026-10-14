@@ -3,18 +3,33 @@ import cv2
 import numpy as np
 import pandas as pd
 from skimage import filters, segmentation, measure
-from .video_io import _open
+from .video_io import _open, read_frame_at_time
 from .roi import crop
-from .segmentation import morphology_variants, mask_measurements
+from .eye_tracking import EyeTracker
+from .segmentation import morphology_variants, mask_measurements, select_component, local_pupil_mask
 
 
 def track_video(path, roi, center_xy, radius_px, options, scale=None):
     """Track with independent dark-region reacquisition; preserve rejected measurements."""
+    eye_options=options.get('eye_tracking', {})
+    use_eye_tracking=eye_options.get('enabled', True)
+    reference,_,_=read_frame_at_time(path,options.get('roi_reference_time_s',1.0))
+    full_frame_mode=tuple(roi)==(0,0,reference.shape[1],reference.shape[0])
+    support_roi=roi
+    if full_frame_mode:
+        cx,cy=center_xy; r=radius_px*3
+        left,top=max(0,int(cx-r)),max(0,int(cy-r))
+        right,bottom=min(reference.shape[1],int(cx+r)),min(reference.shape[0],int(cy+r))
+        support_roi=(left,top,right-left,bottom-top)
+    tracker=EyeTracker(reference,support_roi,eye_options) if use_eye_tracking else None
+    anchor_roi=tracker.anchor_roi if tracker else tuple(roi)
+    seed_full=np.array([roi[0]+center_xy[0],roi[1]+center_xy[1]],float)
     cap = _open(path)
     theta=np.linspace(0,2*np.pi,200,endpoint=False)
     x,y=center_xy
     contour=np.column_stack([y+radius_px*np.sin(theta),x+radius_px*np.cos(theta)])
     rows=[]; previews=[]; previous=None; previous_time=None; last_t=-np.inf
+    pending=None; pending_count=0
     try:
         index=0
         while True:
@@ -24,13 +39,25 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
             if not np.isfinite(t) or t <= last_t:
                 raise ValueError("Decoded timestamps must be finite and strictly increasing")
             last_t=t
-            rgb=crop(cv2.cvtColor(bgr,cv2.COLOR_BGR2RGB),roi)
+            full_rgb=cv2.cvtColor(bgr,cv2.COLOR_BGR2RGB)
+            location=tracker.update(full_rgb) if tracker else None
+            current_roi=location.roi if tracker and not full_frame_mode else tuple(roi)
+            eye_shift=np.array(location.shift_xy) if tracker else np.zeros(2)
+            expected_seed=seed_full+eye_shift-np.array(current_roi[:2])
+            x,y=expected_seed
+            rgb=crop(full_rgb,current_roi)
+            # Invalid out-of-frame locations remain rejected, but diagnostics
+            # must not crash when the predicted seed falls outside the crop.
+            expected_seed=np.clip(expected_seed,[0,0],[rgb.shape[1]-1,rgb.shape[0]-1])
             gray=filters.gaussian(cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY),sigma=1.5)
             if previous is not None:
-                x,y=previous['centroid_x_px'],previous['centroid_y_px']
+                x,y=previous['centroid_anchor_x_px']+eye_shift[0]-current_roi[0],previous['centroid_anchor_y_px']+eye_shift[1]-current_roi[1]
                 radius=radius_px
                 contour=np.column_stack([y+radius*np.sin(theta),x+radius*np.cos(theta)])
-            if options.get('tracking_method') == 'kmeans':
+            if options.get('tracking_method') == 'local_otsu':
+                mask=local_pupil_mask(rgb,expected_seed,radius_px,
+                    options.get('pupil_threshold_classes',3),options.get('pupil_search_radius_factor',1.8),options['min_area_px2'])
+            elif options.get('tracking_method') == 'kmeans':
                 lab=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB).reshape(-1,3).astype(np.float32)
                 cv2.setRNGSeed(0)
                 _,labels,centers=cv2.kmeans(lab,5,None,(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER,50,.5),1,cv2.KMEANS_PP_CENTERS)
@@ -57,9 +84,9 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
                 components=measure.label(labels.reshape(gray.shape)==int(np.argmin(centers[:,0])))
                 candidates=[p for p in measure.regionprops(components) if p.area>=options['min_area_px2']]
                 if candidates:
-                    selected=min(candidates,key=lambda p: np.hypot(p.centroid[1]-center_xy[0],p.centroid[0]-center_xy[1]))
+                    selected=min(candidates,key=lambda p: np.hypot(p.centroid[1]-expected_seed[0],p.centroid[0]-expected_seed[1]))
                     y,x=selected.centroid
-                else: x,y=center_xy
+                else: x,y=expected_seed
                 contour=np.column_stack([y+radius_px*np.sin(theta),x+radius_px*np.cos(theta)])
                 candidate=segmentation.active_contour(gray,contour,alpha=.02,beta=5,gamma=.01,
                     w_line=0,w_edge=1,max_num_iter=options['snake_iterations'])
@@ -67,29 +94,53 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
                 cv2.fillPoly(mask,[np.rint(candidate[:,::-1]).astype(np.int32)],1)
                 mask=mask.astype(bool)
             else:
-                raise ValueError('tracking_method must be kmeans, watershed or snake')
+                raise ValueError('tracking_method must be local_otsu, kmeans, watershed or snake')
             mask=morphology_variants(mask,options['morphology_radius'],30)['opening_closing_filled']
+            mask=select_component(mask, expected_seed)
             metrics=mask_measurements(mask,scale)
             area=metrics['area_px2']; d=metrics['equivalent_diameter_px']
+            metrics['centroid_anchor_x_px']=metrics['centroid_x_px']+current_roi[0]-eye_shift[0]
+            metrics['centroid_anchor_y_px']=metrics['centroid_y_px']+current_roi[1]-eye_shift[1]
             reasons=[]
+            if location is not None and not location.valid:
+                reasons.append(location.reason or 'eye_tracking_failed')
             if not options['min_area_px2'] <= area <= options['max_area_px2']: reasons.append('area_bounds')
             if mask[0].any() or mask[-1].any() or mask[:,0].any() or mask[:,-1].any(): reasons.append('roi_border')
             if previous is not None:
                 if abs(d-previous['equivalent_diameter_px']) / max(previous['equivalent_diameter_px'],1) > options['max_relative_diameter_step']: reasons.append('diameter_jump')
-                move=np.hypot(metrics['centroid_x_px']-previous['centroid_x_px'],metrics['centroid_y_px']-previous['centroid_y_px'])
+                move=np.hypot(metrics['centroid_anchor_x_px']-previous['centroid_anchor_x_px'],metrics['centroid_anchor_y_px']-previous['centroid_anchor_y_px'])
                 if move/max(t-previous_time,1e-6)>options['max_center_speed_px_s']: reasons.append('center_jump')
             ring=morphology_variants(mask,2,30)['dilation'] & ~mask
             raw_gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
             if mask.any() and ring.any() and np.median(raw_gray[ring])-np.median(raw_gray[mask]) < options.get('min_pupil_contrast',2):
                 reasons.append('low_pupil_contrast')
+            # A real fast response or reacquisition must not lock the tracker to
+            # its old size forever. Confirm a new stable candidate over several frames.
+            reacquired=False
+            if reasons and set(reasons).issubset({'diameter_jump','center_jump'}):
+                consistent=(pending is not None and abs(d-pending['equivalent_diameter_px'])/max(pending['equivalent_diameter_px'],1)<=options['max_relative_diameter_step']
+                            and np.hypot(metrics['centroid_anchor_x_px']-pending['centroid_anchor_x_px'],metrics['centroid_anchor_y_px']-pending['centroid_anchor_y_px'])<=options.get('pupil_confirmation_motion_px',5))
+                pending_count=pending_count+1 if consistent else 1
+                pending=metrics
+                if pending_count>=options.get('pupil_confirmation_frames',3):
+                    reasons=[];reacquired=True
+            else:
+                pending=None;pending_count=0
             valid=not reasons
             if valid:
                 previous=metrics; previous_time=t
             rows.append({'frame_index':index,'timestamp_s':t,**metrics,'accepted':valid,
-                         'artifact_reason':'|'.join(reasons),'centroid_full_x_px':metrics['centroid_x_px']+roi[0],
-                         'centroid_full_y_px':metrics['centroid_y_px']+roi[1]})
+                         'pupil_reacquired':reacquired,'roi_x_px':current_roi[0],'roi_y_px':current_roi[1],
+                         'roi_width_px':current_roi[2],'roi_height_px':current_roi[3],
+                         'eye_shift_x_px':eye_shift[0],'eye_shift_y_px':eye_shift[1],
+                         'eye_tracking_valid':location.valid if location else True,
+                         'eye_tracking_method':location.method if location else 'disabled',
+                         'eye_tracking_confidence':location.confidence if location else np.nan,
+                         'eye_tracking_inliers':location.inliers if location else 0,
+                         'artifact_reason':'|'.join(reasons),'centroid_full_x_px':metrics['centroid_x_px']+current_roi[0],
+                         'centroid_full_y_px':metrics['centroid_y_px']+current_roi[1]})
             if index % options['preview_stride']==0:
-                previews.append((index,t,rgb.copy(),mask.copy(),valid))
+                previews.append((index,t,rgb.copy(),mask.copy(),valid,current_roi,full_rgb.copy(),location))
             index+=1
     finally: cap.release()
     return pd.DataFrame(rows),previews

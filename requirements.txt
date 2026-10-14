@@ -1,3 +1,6 @@
+# Python packages for processing, desktop previews and notebook execution.
+# Tkinter is an OS component (python3-tk on Debian/Ubuntu), not a pip package.
+# Folder opening uses system xdg-open or gio.
 numpy>=1.26
 scipy>=1.11
 scikit-image>=0.22
@@ -10,3 +13,5 @@ ipykernel>=6.29
 nbformat>=5.9
 nbclient>=0.9
 jupyter-client>=8.6
+pillow>=10.0
+nbconvert>=7.0

@@ -1,4 +1,4 @@
-,latency_s,latency_s,latency_s,response_amplitude_px,response_amplitude_px,response_amplitude_px
-,count,mean,std,count,mean,std
-record_type,,,,,,
-A,1,0.5,,1,18.08783896576201,
+,latency_s,latency_s,latency_s,response_amplitude_px,response_amplitude_px,response_amplitude_px,response_amplitude_mm,response_amplitude_mm,response_amplitude_mm
+,count,mean,std,count,mean,std,count,mean,std
+record_type,,,,,,,,,
+A,2,0.5333333333333332,0.047140452079103,2,21.241744212926108,4.460295574979133,1,3.805803558341607,

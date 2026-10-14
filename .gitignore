@@ -39,3 +39,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Desktop GUI's local per-video selections
+.psib_gui/

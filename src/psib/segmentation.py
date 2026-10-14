@@ -29,7 +29,8 @@ def segment_methods(rgb, center_xy, radius_px, clusters=(2, 3, 4, 5), snake_iter
     x, y = center_xy
     if radius_px <= 0 or not (0 <= x < w and 0 <= y < h):
         raise ValueError("Invalid pupil initialization")
-    results = {"otsu": select_component(gray <= filters.threshold_otsu(gray), center_xy)}
+    results = {"otsu": select_component(gray <= filters.threshold_otsu(gray), center_xy),
+               "local_otsu": local_pupil_mask(rgb, center_xy, radius_px)}
     lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB).reshape(-1, 3).astype(np.float32)
     for k in clusters:
         cv2.setRNGSeed(0)
@@ -99,3 +100,25 @@ def polygon_mask(shape, points_xy):
     mask = np.zeros(shape[:2], np.uint8)
     cv2.fillPoly(mask, [np.rint(p).astype(np.int32)], 1)
     return mask.astype(bool)
+
+
+def local_pupil_mask(rgb, center_xy, radius_px, classes=3, search_radius_factor=1.8, min_size=30):
+    """Keep the darkest local intensity group near the pupil seed.
+
+    This supplements global Otsu for illumination-dependent pupil/iris contrast;
+    it remains a candidate requiring manual-reference validation.
+    """
+    gray=filters.gaussian(cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY),sigma=1.5)
+    x,y=center_xy
+    if radius_px<=0 or not (0<=x<gray.shape[1] and 0<=y<gray.shape[0]):
+        raise ValueError('Invalid local pupil initialization')
+    yy,xx=np.mgrid[:gray.shape[0],:gray.shape[1]]
+    search=np.hypot(xx-x,yy-y)<=radius_px*search_radius_factor
+    values=gray[search]
+    if not values.size or values.max()==values.min():
+        return np.zeros(gray.shape,bool)
+    classes=min(int(classes),len(np.unique(np.rint(values*255))))
+    threshold=filters.threshold_multiotsu(values,classes=classes)[0] if classes>2 else filters.threshold_otsu(values)
+    labels=measure.label((gray<=threshold)&search)
+    sizes=np.bincount(labels.ravel());keep=sizes>=min_size;keep[0]=False
+    return select_component(keep[labels],center_xy)

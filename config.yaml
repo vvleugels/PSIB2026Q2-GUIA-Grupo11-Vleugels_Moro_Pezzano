@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 
 # Video processed by the pipeline (Module 1 onwards)
-video_path: "data/A_1.mp4"
+video_path: "data/A_2.mp4"
 
 # Folder with all the recordings (Module 0 inventories it).
 # Can be overridden with the environment variable PSIB_VIDEO_DIR.
@@ -30,7 +30,7 @@ frames:
 # The values below were tuned for the sample video A_1.mp4 (560x672 px).
 # ---------------------------------------------------------------------------
 roi:
-  mode: manual
+  mode: interactive
   x: 120
   y: 290
   w: 360
@@ -79,14 +79,15 @@ module1:
 # Ruler endpoints are selected on the full upright frame, never on a resized ROI.
 # Keep enabled false for A_1 (no ruler). Each video requires its own calibration.
 calibration:
-  enabled: false
-  mode: manual          # manual | interactive
+  enabled: true
+  mode: interactive          # manual | interactive
   frame_time_s: 1.0
   distance_cm: 1.0
   points_xy: null        # [[x1, y1], [x2, y2]] spanning exactly distance_cm
 
 module2:
-  method: snake         # provisional choice; validate against manual references
+  initialization_mode: interactive  # manual | interactive: center then pupil boundary
+  method: local_otsu    # provisional choice; validate against manual references
   clusters: [2, 3, 4, 5]
   snake_iterations: 250
   morphology_radius: 2
@@ -99,11 +100,15 @@ module2:
   reference_masks: [null, null]
 
 module3:
-  tracking_method: snake  # kmeans | watershed | snake; provisional, verify overlays
+  tracking_method: local_otsu  # local_otsu | kmeans | watershed | snake; verify overlays
+  pupil_threshold_classes: 3
+  pupil_search_radius_factor: 1.8
+  pupil_confirmation_frames: 3
+  pupil_confirmation_motion_px: 5
   texture_levels: 32
   snake_iterations: 250
   morphology_radius: 2
-  min_area_px2: 300
+  min_area_px2: 50
   max_area_px2: 15000
   max_relative_diameter_step: 0.25
   max_center_speed_px_s: 300
@@ -121,3 +126,15 @@ module3:
   onset_hold_s: 0.10
   # Optional CSV: frame_index, area_px2, equivalent_diameter_px (either measurement).
   manual_measurements_csv: null
+  # ROI selected on the primary frame; notebooks set roi_reference_time_s from it.
+  eye_tracking:
+    enabled: true
+    margin_px: 10
+    min_inliers: 8
+    min_inlier_fraction: 0.6
+    forward_backward_error_px: 1.5
+    max_step_px: 60
+    max_scale_change: 0.05
+    max_rotation_deg: 5
+    recovery_search_px: 100
+    recovery_min_correlation: 0.75

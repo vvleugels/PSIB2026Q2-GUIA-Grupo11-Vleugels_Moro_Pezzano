@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 import yaml
@@ -26,16 +27,26 @@ def load_config(path: str | Path | None = None) -> dict:
     The returned dict gets two extra keys: ``_root`` (project root) and
     ``_output_dir`` (absolute output folder, already created).
     """
-    cfg_path = Path(path) if path else find_project_root() / "config.yaml"
+    explicit_run = os.environ.get("PSIB_RUN_CONFIG")
+    cfg_path = Path(explicit_run) if explicit_run else (Path(path) if path else find_project_root() / "config.yaml")
+    local_path = cfg_path.with_name("config.local.yaml")
+    if not explicit_run and cfg_path.name == "config.yaml" and local_path.is_file():
+        cfg_path = local_path
     with open(cfg_path, "r", encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh)
 
-    if os.environ.get("PSIB_VIDEO_PATH"):
+    if not explicit_run and os.environ.get("PSIB_VIDEO_PATH"):
+        if os.environ["PSIB_VIDEO_PATH"] != cfg["video_path"]:
+            warnings.warn(
+                f"PSIB_VIDEO_PATH overrides config.yaml: using {os.environ['PSIB_VIDEO_PATH']} "
+                f"instead of {cfg['video_path']}. Unset it to use the YAML setting.",
+                stacklevel=2,
+            )
         cfg["video_path"] = os.environ["PSIB_VIDEO_PATH"]
-    if os.environ.get("PSIB_VIDEO_DIR"):
+    if not explicit_run and os.environ.get("PSIB_VIDEO_DIR"):
         cfg["video_dir"] = os.environ["PSIB_VIDEO_DIR"]
 
-    root = cfg_path.resolve().parent
+    root = Path(cfg.get("project_root", cfg_path.resolve().parent)).resolve()
     for key in ("video_path", "video_dir"):
         value = Path(cfg[key]).expanduser()
         cfg[key] = str(value if value.is_absolute() else root / value)

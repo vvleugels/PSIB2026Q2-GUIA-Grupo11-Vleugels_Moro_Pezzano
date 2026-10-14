@@ -1,0 +1,2 @@
+record_type,stimulus_s,baseline_diameter_px,response_amplitude_px,response_amplitude_area_px2,latency_s,peak_constriction_speed_px_s,peak_redilation_speed_px_s,accepted_fraction,status,video,stimulus_source,pixels_per_cm
+A,3.4333333333333336,47.08488653218633,27.902440691562617,1452.2171565956198,0.4666666666666668,70.94848898464299,39.09363250981855,0.9789915966386554,estimated_unvalidated,A_2.mp4,brightness_estimate,
