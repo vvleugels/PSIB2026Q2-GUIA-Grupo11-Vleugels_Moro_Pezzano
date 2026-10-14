@@ -15,9 +15,9 @@ reusable algorithms live in Python modules.
 | 1: image fundamentals | Sampling, quantization, color spaces, intensity transforms, noise/filtering, edges, Fourier and image-quality metrics | These experiments illustrate methods; a higher image-similarity score does not establish better pupil detection |
 | 2: segmentation | Global/local Otsu, K-means, snakes, watershed, morphology, contour skeletonization and optional reference comparison | Local Otsu is provisional; weak contrast and reflections still affect boundaries |
 | 3: features and time | Shape, RGB texture, eye tracking, pupil size curves, artifact handling and response estimates | Physiological measurements remain unvalidated until compared with human references |
-| 4: compression | Not implemented | Huffman, RLE and JPEG experiments remain pending |
+| 4: compression | Explicit Huffman and horizontal/vertical RLE, JPEG image comparisons and full-video Q=50/10 measurements | Pipeline differences are not anatomical accuracy; source videos are already compressed |
 
-The desktop app runs Modules 0–3. It simplifies configuration but does not make the
+The desktop app runs Modules 0–4. It simplifies configuration but does not make the
 pipeline fully automatic for unseen videos: initial eye/pupil selections are still
 required. Written notebook discussion answers and broader validation remain work
 for the practical assignment.
@@ -43,7 +43,7 @@ display is needed for the app and standalone OpenCV selection windows.
 | --- | --- |
 | `gui.py` | Start the desktop application |
 | `validate_notebooks.py` | Execute notebooks and preserve executed copies |
-| `notebooks/00_…03_*.ipynb` | Run experiments manually in Jupyter |
+| `notebooks/00_…04_*.ipynb` | Run experiments manually in Jupyter |
 | `tests/` | Focused automated checks; no real-video anatomical ground truth |
 
 JupyterLab is optional and is not required by the desktop app or terminal runner.
@@ -85,7 +85,7 @@ absolute input/output paths and a `project_root` when project-relative paths are
 4. Enable calibration if the video has a ruler. Select two marks and enter their
    known distance in centimeters. Calibration off means pixel-only results.
 5. Select the pupil center and one boundary point on each comparison frame.
-6. Confirm selections and click **Run all notebooks (0–3)**.
+6. Confirm selections and click **Run all notebooks (0–4)**.
 7. Inspect the figures and executed HTML reports in **Results & log**.
 
 Zoom/Fit and scrollbars affect only the display. Coordinates map back to original
@@ -131,6 +131,7 @@ not edit the published or local configuration.
 | Module 1 | Noise seed, sampling/quantization, intensity/filter/edge/frequency settings |
 | Module 2 | Method, manual/interactive initialization, per-frame centers/radii, morphology, optional reference-mask paths |
 | Module 3 | Pupil method, local threshold settings, quality limits, eye tracking, interpolation/smoothing, stimulus and response settings |
+| Module 4 | `jpeg_qualities: [90, 50, 10, 5]`, `temporal_qualities: [50, 10]`, `save_all_frames: false`; absent section uses these defaults |
 
 GUI runs force manual selections, set the video inventory directory to the selected
 video's parent, and clear optional reference-mask/manual-measurement paths to avoid
@@ -141,7 +142,7 @@ inputs, prepare an appropriate configuration and run the notebook/runner directl
 
 ```text
 GUI setup → decoded comparison frames → confirmed original-pixel selections
-    → isolated run configuration → notebook worker → kernels for Modules 0–3
+    → isolated run configuration → notebook worker → kernels for Modules 0–4
     → tables + masks + figures + executed notebooks + HTML + execution status
 ```
 
@@ -160,6 +161,7 @@ main event loop.
 | `segmentation`, `features` | Candidate masks, morphology, reference overlap, shape and masked texture |
 | `color`, `sampling`, `intensity`, `noise`, `filters` | Module 1 image transformations |
 | `edges`, `frequency`, `metrics` | Edge/frequency analysis and image-quality statistics |
+| `compression`, `compression_study` | Self-contained lossless codecs, RGB-safe JPEG and image/temporal experiments |
 | `plotting`, `utils`, `system_open` | Figure output, array conversion and desktop folder opening |
 
 Important interfaces:
@@ -170,7 +172,7 @@ Important interfaces:
   `missing()` reports setup errors; `effective_config(...)` builds a prepared run.
 - `EyeTracker.update(frame_rgb)` returns `EyeLocation`: crop, translation, validity,
   method, feature inliers, confidence and failure reason.
-- `track_video(path, roi, center_xy, radius_px, options, scale=None)` returns a
+- `track_video(path, roi, center_xy, radius_px, options, scale=None, *, frame_transform=None, frame_observer=None)` returns a
   per-frame DataFrame and sampled previews. Coordinates are ROI-local on input.
 - `clean_curve(...)` returns the raw table plus cleaned/smoothed size columns and
   interpolation flags. `response_parameters(...)` returns a parameter dictionary.
@@ -181,7 +183,10 @@ The runner emits module/cell start/completion, log, complete, failed and cancell
 events. Failure records the notebook and cell index and prevents subsequent
 modules from running. Cancel terminates the active kernel and leaves a labelled
 partial notebook/report. CLI exit codes are 0 (complete), 1 (failed) and 130
-(cancelled). Source notebooks remain unchanged by runner execution.
+(cancelled). Source notebooks remain unchanged by runner execution. The runner uses a
+300-second per-cell timeout unless positive integer notebook metadata
+`execution_timeout_s` overrides it. Module 4 uses 1800 seconds because its
+whole-video multi-pass cell is substantially longer; cancellation remains available.
 
 ## 6. Tracking, segmentation and measurement
 
@@ -329,3 +334,88 @@ is kept below as decisions are applied.
   requirements retain all desktop, processing, kernel and HTML-export packages.
 - Git history and the existing virtual environment were not altered. Previous
   commits still contain old artifacts, so clone-history size has not been reduced.
+
+## 10. Module 4: compression and downstream measurements
+
+The notebook `04_compression.ipynb` prepares the current video's confirmed settings,
+compares compression on two selected frames, then runs a whole-video baseline and
+JPEG Q=50/10 comparisons. Both ROI modes and calibration on/off are supported.
+An older configuration without `module4` uses defaults; required assignment
+qualities must remain present, although more qualities may be added.
+
+### Inputs and codecs
+
+At each timestamp, compare the full RGB frame, tracked eye RGB image, RGB image
+with the algorithm's pupil mask zeroing the background, and the binary mask as
+uint8 0/255. With ROI off, the eye image is full-frame. The selected segmentation
+method and morphology match Module 2. Masks are algorithm-generated references.
+
+`encode_lossless(image, codec)` and `decode_lossless(data)` accept nonempty uint8
+grayscale/RGB images and produce/consume complete PSIC v1 files. The format starts
+with `PSIC` and version byte 1, a four-byte big-endian JSON-header length, JSON
+metadata, and binary payload. Metadata includes shape, dtype and codec. Huffman
+uses a serialized prefix-code table, valid bit count and zero-padded packed bits.
+RLE uses five-byte big-endian (uint32 length, uint8 value) records, with runs
+reset at scanline boundaries and separate channel planes. Traversal direction
+is recorded in the codec name. Decoding validates payload lengths and structure;
+every experiment requires exact round-trip reconstruction.
+
+`jpeg_roundtrip(image, quality)` returns encoded JPEG bytes and decoded pixels,
+with explicit RGB/BGR conversion and unchanged dimensions. Binary-mask JPEG
+reconstructions are compared as intensity images; they are not thresholded and
+used as anatomical segmentations.
+
+Compression ratio is `image.nbytes / complete_encoded_file_bytes`, including
+headers and decoding metadata. Values below 1 mean expansion. It does not compare
+with the source MP4 size, nor with bit-packed binary masks. Lossless PSNR is
+infinite and SSIM is 1. Quality plots keep infinite PSNR out of numeric axes and
+label the lossless case. Error images use a shared 0–255 scale (mean RGB error).
+Pupil-edge enlargements support visual discussion of blocking and ringing;
+zeroing the background creates additional artificial edges.
+
+### Temporal comparison
+
+The optional `frame_transform(rgb)` hook applies to the original-resolution
+reference frame and all sequential frames before tracking/segmentation. It must
+preserve uint8 dtype and shape. `frame_observer(index, timestamp, original_rgb,
+transformed_rgb)` observes sequential frames only; callback exceptions terminate
+the pass and release the capture. Ordinary Module 3 calls do not use these hooks.
+
+Each pass has independent tracking state but identical settings, pixel scale,
+manual initialization and stimulus time. The original video's brightness is used
+once for stimulus estimation when no manual time is configured. Clean curves and
+physiological estimates reuse Module 3's logic. Paired diameter error uses only
+finite raw measurements accepted in both passes. Reports include paired counts,
+acceptance/rejection counts and unavailable statuses when no pairs exist. Missing
+physiological windows remain unavailable; interpolation does not validate masks.
+
+These results measure **additional still-image JPEG compression of decoded video
+frames**. They do not measure video-codec bitrate, a lossless camera reference, or
+anatomical accuracy. Inspect curves and overlays before drawing conclusions.
+
+### Files and retention
+
+Outputs live under the current run's `module4/<video>/` directory:
+
+- `manifest.json`: input metadata, effective algorithm/codec settings, frame
+  indices/timestamps, ROI, ruler scale, shared stimulus and completion state.
+- `selected_frames/`: complete compressed Huffman/RLE/JPEG files for both frames;
+  `compression_metrics.csv` records sizes, ratios, PSNR/SSIM and SHA-256 checksums.
+- `baseline_pupil_curve.csv`, `jpeg_q50_pupil_curve.csv`, `jpeg_q10_pupil_curve.csv`:
+  raw flags/measurements and cleaned curves; physical columns only with calibration.
+- `diameter_comparison.csv`: paired bias, MAE/RMSE and sample/rejection counts.
+- `physiological_parameters.csv`, `physiological_differences.csv`: exploratory
+  parameters and numeric differences from the baseline, with status columns.
+- `temporal_compression_metrics.csv`: per-frame JPEG sizes, ratios and quality;
+  when retained, paths map JPEG filenames to original frame indices/timestamps.
+
+Comparison figures use the current run's `figures/m4_*.png` paths. Executed notebook
+copies and HTML reports use the existing runner output directory. Completed passes
+are saved progressively. A manifest with status other than `complete` is partial;
+consult the runner's status/error and failed cell before using it.
+
+By default, whole-video JPEG bytes are discarded after measurement, while the
+selected-frame examples, figures and CSVs remain. `save_all_frames: true` saves all
+temporal JPEGs under `temporal_jpeg/<variant>/`; the source video supplies the
+original sequence. Bulk temporal JPEG directories are ignored by Git. Selection
+and bundling of a publishable example video remain a separate future task.

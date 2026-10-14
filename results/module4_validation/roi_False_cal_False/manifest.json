@@ -1,0 +1,135 @@
+{
+  "video": "/home/zenith/Videos/PSIB/A_2.mp4",
+  "size_bytes": 1452614,
+  "mtime_ns": 1791933939865740128,
+  "selected_frames": [
+    {
+      "frame_index": 30,
+      "timestamp_s": 1.0
+    },
+    {
+      "frame_index": 179,
+      "timestamp_s": 5.0
+    }
+  ],
+  "roi": [
+    0,
+    0,
+    464,
+    832
+  ],
+  "initializations": [
+    {
+      "center_xy": [
+        248,
+        412
+      ],
+      "radius_px": 23.345235059857504
+    },
+    {
+      "center_xy": [
+        206,
+        442
+      ],
+      "radius_px": 8.94427190999916
+    }
+  ],
+  "pixels_per_cm": null,
+  "stimulus_s": 3.4333333333333336,
+  "stimulus_source": "brightness_estimate",
+  "module2": {
+    "clusters": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "initialization_mode": "manual",
+    "initializations": [
+      {
+        "center_xy": [
+          248,
+          412
+        ],
+        "radius_px": 23.345235059857504
+      },
+      {
+        "center_xy": [
+          206,
+          442
+        ],
+        "radius_px": 8.94427190999916
+      }
+    ],
+    "method": "local_otsu",
+    "min_component_size": 30,
+    "morphology_radius": 2,
+    "reference_masks": [
+      null,
+      null
+    ],
+    "snake_iterations": 250
+  },
+  "module3": {
+    "baseline_window_s": 1.0,
+    "eye_tracking": {
+      "enabled": true,
+      "forward_backward_error_px": 1.5,
+      "margin_px": 10,
+      "max_rotation_deg": 5,
+      "max_scale_change": 0.05,
+      "max_step_px": 60,
+      "min_inlier_fraction": 0.6,
+      "min_inliers": 8,
+      "recovery_min_correlation": 0.75,
+      "recovery_search_px": 100
+    },
+    "manual_measurements_csv": null,
+    "max_area_px2": 15000,
+    "max_center_speed_px_s": 300,
+    "max_gap_s": 0.15,
+    "max_relative_diameter_step": 0.25,
+    "min_area_px2": 50,
+    "min_baseline_frames": 10,
+    "min_pupil_contrast": 2,
+    "morphology_radius": 2,
+    "noise_multiplier": 3.0,
+    "onset_hold_s": 0.1,
+    "preview_stride": 25,
+    "pupil_confirmation_frames": 3,
+    "pupil_confirmation_motion_px": 5,
+    "pupil_search_radius_factor": 1.8,
+    "pupil_threshold_classes": 3,
+    "record_type": null,
+    "relative_onset_threshold": 0.05,
+    "response_window_s": 5.0,
+    "roi_reference_time_s": 1.0,
+    "smooth_window_s": 0.15,
+    "snake_iterations": 250,
+    "stimulus_time_s": null,
+    "texture_levels": 32,
+    "tracking_method": "local_otsu"
+  },
+  "module4": {
+    "jpeg_qualities": [
+      90,
+      50,
+      10,
+      5
+    ],
+    "temporal_qualities": [
+      50,
+      10
+    ],
+    "save_all_frames": false
+  },
+  "codec_format": "PSIC v1",
+  "ratio_definition": "raw array nbytes / complete encoded file bytes",
+  "interpretation": "Differences from uncompressed processing, not anatomical accuracy",
+  "status": "complete",
+  "temporal_frame_counts": {
+    "baseline": 238,
+    "jpeg_q50": 238,
+    "jpeg_q10": 238
+  }
+}

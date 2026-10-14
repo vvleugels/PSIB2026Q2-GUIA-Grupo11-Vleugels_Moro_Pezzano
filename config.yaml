@@ -138,3 +138,9 @@ module3:
     max_rotation_deg: 5
     recovery_search_px: 100
     recovery_min_correlation: 0.75
+
+# Module 4: compression experiments (all ratios include codec headers).
+module4:
+  jpeg_qualities: [90, 50, 10, 5]
+  temporal_qualities: [50, 10]
+  save_all_frames: false  # retain every temporal JPEG only for a chosen example

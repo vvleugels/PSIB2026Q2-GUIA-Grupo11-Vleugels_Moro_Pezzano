@@ -46,6 +46,9 @@ def load_config(path: str | Path | None = None) -> dict:
     if not explicit_run and os.environ.get("PSIB_VIDEO_DIR"):
         cfg["video_dir"] = os.environ["PSIB_VIDEO_DIR"]
 
+    defaults = dict(jpeg_qualities=[90, 50, 10, 5], temporal_qualities=[50, 10], save_all_frames=False)
+    cfg['module4'] = {**defaults, **cfg.get('module4', {})}
+
     root = Path(cfg.get("project_root", cfg_path.resolve().parent)).resolve()
     for key in ("video_path", "video_dir"):
         value = Path(cfg[key]).expanduser()

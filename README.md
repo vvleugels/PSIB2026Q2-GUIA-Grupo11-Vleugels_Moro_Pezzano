@@ -14,9 +14,9 @@ configuration precedence, algorithms, output formats and maintenance notes.
 | 1 — Image fundamentals | Sampling, color, enhancement, filters, edges, Fourier and quality comparisons implemented |
 | 2 — Segmentation | Multiple methods, morphology and optional reference-mask comparison implemented |
 | 3 — Features and dynamics | Shape/texture, moving eye ROI, temporal curves and exploratory response estimates implemented |
-| 4 — Compression | Pending |
+| 4 — Compression | Huffman, horizontal/vertical RLE, JPEG quality comparisons and whole-video diameter effects implemented |
 
-Modules 0–3 run on the available examples. **Execution success is not measurement
+Modules 0–4 run on the available examples. **Execution success is not measurement
 accuracy.** Some pupil boundaries remain incorrect; manual annotations and further
 recordings are needed to validate them. Written discussion answers and fully
 automatic handling of unseen recordings are also pending.
@@ -42,7 +42,7 @@ Use a desktop session. Folder opening needs the system's `xdg-open` or `gio`.
 3. Enable **Calibration** to select two ruler marks a known distance apart,
    normally 1 cm. Disable it for pixel-only measurements.
 4. Select the pupil center and a boundary point in each comparison frame.
-5. Confirm each selection, then click **Run all notebooks (0–3)**.
+5. Confirm each selection, then click **Run all notebooks (0–4)**.
 6. Inspect the plots and executed notebook reports in **Results & log**.
 
 Use Zoom/Fit and scrollbars. Space resets a draft selection; Backspace/right click
@@ -72,7 +72,7 @@ python -m jupyterlab
 ```
 
 Open it from the repository root and run
-`notebooks/00_acquisition.ipynb` through `03_features_temporal.ipynb` in order.
+`notebooks/00_acquisition.ipynb` through `04_compression.ipynb` in order.
 Restart the kernel after code changes. For terminal execution:
 
 ```bash
@@ -107,3 +107,18 @@ execution paths. Videos, environments, presets, local settings and caches are ig
 
 The source code is small compared with generated reports. See the documentation's
 maintenance section for the debloat audit and approved cleanup decisions.
+
+## Compression study
+
+Module 4 compares Huffman, horizontal/vertical RLE and JPEG Q=90/50/10/5 on the
+selected frames and segmented regions. It also reruns the whole video at JPEG
+Q=50/10 to compare diameter curves, rejection rates and exploratory response
+parameters against uncompressed processing. This adds two JPEG passes and an
+independent baseline to execution time. These are differences from the existing
+pipeline, not anatomical accuracy scores.
+
+Selected-frame compressed files, CSVs and figures are retained. Temporal JPEGs
+are processed in memory by default. Set `module4.save_all_frames: true` in your
+configuration to save every temporal JPEG for a future example recording; these
+bulk files are ignored by Git. The example video and publication set will be
+chosen separately. No additional packages are required.

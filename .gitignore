@@ -48,3 +48,6 @@ results/gui_validation/**/figures/
 results/gui_validation/**/*.npy
 results/gui_validation/**/validation/*.ipynb
 results/gui_validation/**/validation/*.html
+
+# Bulk Module 4 temporal JPEGs; example publication is an explicit later step.
+results/**/module4/**/temporal_jpeg/

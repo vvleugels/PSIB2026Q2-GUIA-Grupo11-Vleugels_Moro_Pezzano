@@ -85,7 +85,7 @@ class DesktopApp:
         ttk.Label(bottom,textvariable=self.status,wraplength=940).pack(anchor='w')
         self.progress=ttk.Progressbar(bottom,maximum=100);self.progress.pack(side='left',fill='x',expand=True,pady=6)
         self.cancel_button=ttk.Button(bottom,text='Cancel run',command=self.cancel);self.cancel_button.pack(side='right')
-        self.run_button=ttk.Button(bottom,text='Run all notebooks (0–3)',command=self.run);self.run_button.pack(side='right',padx=8)
+        self.run_button=ttk.Button(bottom,text='Run all notebooks (0–4)',command=self.run);self.run_button.pack(side='right',padx=8)
         for variable in (self.t1,self.t2,self.distance):variable.trace_add('write',lambda *args:self.refresh())
         self.refresh();window.after(100,self.poll)
 
@@ -298,7 +298,7 @@ class DesktopApp:
         self.append_log('New run: '+str(folder))
         self.status.set('Starting notebooks…')
         command=[sys.executable,str(self.root/'validate_notebooks.py'),'--config',str(config),'--json-events',
-                 '00_acquisition.ipynb','01_fundamentals_enhancement.ipynb','02_segmentation_morphology.ipynb','03_features_temporal.ipynb']
+                 '00_acquisition.ipynb','01_fundamentals_enhancement.ipynb','02_segmentation_morphology.ipynb','03_features_temporal.ipynb','04_compression.ipynb']
         env=os.environ.copy()
         for key in ('PSIB_VIDEO_PATH','PSIB_VIDEO_DIR','PSIB_RUN_CONFIG'):env.pop(key,None)
         try:self.process=subprocess.Popen(command,cwd=self.root,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
@@ -338,7 +338,7 @@ class DesktopApp:
                     event=item[1];name=event.get('event')
                     if name=='module_started':self.status.set('Running '+event['notebook']);self.append_log('Running '+event['notebook'])
                     elif name=='cell_completed':
-                        module=int(event['notebook'][:2]);self.progress['value']=25*(module+event['completed']/max(event['total'],1))
+                        module=int(event['notebook'][:2]);self.progress['value']=20*(module+event['completed']/max(event['total'],1))
                         self.status.set(f"{event['notebook']} — {event['completed']}/{event['total']} cells")
                     elif name=='log':self.append_log(event.get('text',''))
                     elif name in ('failed','cancelled','complete'):

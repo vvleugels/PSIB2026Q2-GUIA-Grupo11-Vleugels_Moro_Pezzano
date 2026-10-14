@@ -9,17 +9,26 @@ from .eye_tracking import EyeTracker
 from .segmentation import morphology_variants, mask_measurements, select_component, local_pupil_mask
 
 
-def track_video(path, roi, center_xy, radius_px, options, scale=None):
+def track_video(path, roi, center_xy, radius_px, options, scale=None, *, frame_transform=None, frame_observer=None):
     """Track eye motion and independently segment the pupil in original pixels.
 
     roi and its crop-local center belong to roi_reference_time_s. A full-frame
     ROI uses a smaller internal motion support region without cropping the
     measurement image. scale is pixels/cm or None. Return (per-frame DataFrame,
     preview tuples); rejected raw measurements remain with reason/quality flags.
+    frame_transform(rgb) applies to reference and sequential full RGB frames.
+    frame_observer(index, timestamp, original_rgb, transformed_rgb) observes only
+    sequential frames; callbacks may raise to stop processing and release capture.
     """
+    def transform(rgb):
+        result=rgb if frame_transform is None else frame_transform(rgb.copy())
+        if result.shape != rgb.shape or result.dtype != np.uint8:
+            raise ValueError('Frame transformation must preserve shape and uint8 dtype')
+        return result
     eye_options=options.get('eye_tracking', {})
     use_eye_tracking=eye_options.get('enabled', True)
     reference,_,_=read_frame_at_time(path,options.get('roi_reference_time_s',1.0))
+    reference=transform(reference)
     full_frame_mode=tuple(roi)==(0,0,reference.shape[1],reference.shape[0])
     support_roi=roi
     if full_frame_mode:
@@ -42,7 +51,10 @@ def track_video(path, roi, center_xy, radius_px, options, scale=None):
             if not np.isfinite(t) or t <= last_t:
                 raise ValueError("Decoded timestamps must be finite and strictly increasing")
             last_t=t
-            full_rgb=cv2.cvtColor(bgr,cv2.COLOR_BGR2RGB)
+            original_rgb=cv2.cvtColor(bgr,cv2.COLOR_BGR2RGB)
+            full_rgb=transform(original_rgb)
+            if frame_observer is not None:
+                frame_observer(index,t,original_rgb,full_rgb)
             location=tracker.update(full_rgb) if tracker else None
             current_roi=location.roi if tracker and not full_frame_mode else tuple(roi)
             eye_shift=np.array(location.shift_xy) if tracker else np.zeros(2)

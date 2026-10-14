@@ -1,0 +1,4 @@
+variant,status,baseline_diameter_px_delta,response_amplitude_px_delta,response_amplitude_area_px2_delta,latency_s_delta,peak_constriction_speed_px_s_delta,peak_redilation_speed_px_s_delta
+baseline,estimated_unvalidated,0.0,0.0,0.0,0.0,0.0,0.0
+jpeg_q50,estimated_unvalidated,5.44282786965303,6.462461134654461,519.1037040019944,0.0,9.142535843797248,32.56553287046157
+jpeg_q10,insufficient_data,,,,,,

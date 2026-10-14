@@ -108,7 +108,10 @@ def execute_notebooks(project_root,paths,config_path=None,output_dir=None,emit=N
                         if output.output_type=='stream':event('log',notebook=path.name,text=output.text)
             km=KernelManager(kernel_name='python3')
             km._kernel_spec=KernelSpec(argv=[sys.executable,'-m','ipykernel_launcher','-f','{connection_file}'],display_name='PSIB',language='python')
-            client=NotebookClient(nb,km=km,timeout=300,resources={'metadata':{'path':str(root)}},
+            timeout=nb.metadata.get('execution_timeout_s',300)
+            if type(timeout) is not int or timeout<=0:
+                raise ValueError('Notebook execution_timeout_s must be a positive integer')
+            client=NotebookClient(nb,km=km,timeout=timeout,resources={'metadata':{'path':str(root)}},
                                   on_cell_start=started,on_cell_executed=executed,shutdown_kernel="immediate")
             try:
                 asyncio.run(run_client(client,env))

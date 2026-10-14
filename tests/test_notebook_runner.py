@@ -55,3 +55,15 @@ class NotebookRunnerTests(TestCase):
             result=execute_notebooks(self.root,['one.ipynb','two.ipynb'])
             km.return_value.shutdown_kernel.assert_called_once()
         self.assertEqual(result['status'],'cancelled')
+
+    def test_notebook_specific_execution_timeout(self):
+        path=self.root/'notebooks/one.ipynb'
+        nb=nbformat.read(path,as_version=4);nb.metadata['execution_timeout_s']=1800
+        nbformat.write(nb,path)
+        timeouts=[]
+        class Client:
+            def __init__(self,nb,**kwargs):timeouts.append(kwargs['timeout'])
+            async def async_execute(self,**kwargs):pass
+        with patch('psib.notebook_runner.NotebookClient',Client),patch('psib.notebook_runner.KernelManager'):
+            state=execute_notebooks(self.root,['one.ipynb'])
+        self.assertEqual(state['status'],'complete');self.assertEqual(timeouts,[1800])
