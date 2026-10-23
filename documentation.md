@@ -2,6 +2,9 @@
 
 This document describes the current implementation, how its parts connect, and
 how to run and maintain it. Start with [README.md](README.md) for quick setup.
+For a first GUI run, follow [the guided walkthrough](#3-desktop-workflow-a-guided-walkthrough).
+For implementation details, see [the function map](#51-functions-behind-the-buttons)
+and [how the frontend is built](#55-frontend-structure-and-layout).
 
 ## 1. Purpose and current state
 
@@ -18,8 +21,8 @@ reusable algorithms live in Python modules.
 | 4: compression | Explicit Huffman and horizontal/vertical RLE, JPEG image comparisons and full-video Q=50/10 measurements | Pipeline differences are not anatomical accuracy; source videos are already compressed |
 
 The desktop app runs Modules 0–4. It simplifies configuration but does not make the
-pipeline fully automatic for unseen videos: initial eye/pupil selections are still
-required. Written notebook discussion answers and broader validation remain work
+pipeline fully automatic for unseen videos: automatic initialization can need
+manual correction, and enabled ROI/calibration options need image selections. Written notebook discussion answers and broader validation remain work
 for the practical assignment.
 
 ## 2. Installation and entry points
@@ -65,7 +68,8 @@ python validate_notebooks.py --config /absolute/path/run_config.yaml --json-even
 ```
 
 The last command executes all notebooks using prepared configuration. Such runs
-must contain manual/full-frame ROI settings and manual pupil/ruler selections;
+must contain manual/full-frame ROI settings, numeric pupil seeds (clicked or
+GUI-estimated), and ruler points when calibration is enabled;
 interactive selection calls are blocked rather than opening unexpected windows.
 Jupyter kernels need local communication ports even when no browser is involved.
 
@@ -74,53 +78,167 @@ configuration's `output_dir` controls processing figures and tables; they are
 separate concepts. An explicit configuration outside the project should contain
 absolute input/output paths and a `project_root` when project-relative paths are used.
 
-## 3. Desktop workflow
+## 3. Desktop workflow: a guided walkthrough
 
-1. Choose a video. The app decodes it to obtain dimensions, timing and a profile
-   fingerprint based on resolved path, file size and modification time.
-2. Set primary and secondary timestamps and apply them. They must be ordered,
-   within the last-frame timestamp, and decode to different frames.
-3. Enable ROI selection to draw an eye crop. With ROI off, measurements use the
-   entire frame. Full-frame mode still uses an internal eye-motion support region.
-4. Enable calibration if the video has a ruler. Select two marks and enter their
-   known distance in centimeters. Calibration off means pixel-only results.
-5. With **Select pupils manually** on (the default), select the pupil center and
-   one boundary point on each comparison frame. Turn it off to estimate both
-   automatically during background preparation. The primary/secondary buttons
-   become read-only estimate previews; inspect their blue dashed circles.
-6. Confirm any manual selections and click **Run all notebooks (0–4)**.
-7. Inspect the figures and executed HTML reports in **Results & log**.
+The GUI collects the video and image selections, then starts the existing
+notebooks for you. **You do not need to open Jupyter or call Python functions by
+hand.** It does not replace the image-processing algorithms inside the notebooks.
 
-Zoom/Fit and scrollbars affect only the display. Coordinates map back to original
-pixels. Space/reset clears the draft selection; Backspace/right click undoes it;
-Enter confirms it. Saved presets appear as blue dashed overlays when **Show saved
-presets** is enabled. Green/yellow marks represent the new draft selection. Hiding
-saved overlays does not delete the preset.
+### 3.1 What you need before starting
 
-Profiles live in `.psib_gui/` and are ignored by Git. Reopening the same unchanged
-video restores its settings. Changed file metadata invalidates the saved profile;
-changing timestamps or the ROI invalidates both manual pupil selections and
-automatic estimates. The manual-selection toggle is remembered; old profiles
-default to manual mode. Manual points and automatic estimates remain separate,
-so switching modes alone does not discard your manual selections. Changing
-timestamps also clears ruler points because their reference frame changed.
+- The project installed following the [README setup instructions](README.md#install-and-open-the-desktop-app).
+- An activated `.venv` environment and a desktop session. Run `python gui.py` from
+  the folder containing `gui.py`. Keep that terminal open while using the app.
+- Your video file; videos are not bundled with the repository.
+- A visible ruler of known spacing **only if** you want calibrated measurements.
+  Without a ruler, turn Calibration off and use pixel measurements.
 
-Preparation/tracking errors require a corrected ROI or timestamp. The app does not
-silently substitute another crop. A selected crop should contain the eye with
-some surrounding context while avoiding the ruler and unrelated dark structures.
+JupyterLab, a GPU and manually annotated masks are not required for a GUI run.
+The GUI supplies the numerical initializations required by Modules 2–4, either
+from your clicks or from the optional automatic estimator.
 
-An eye ROI is recommended for automatic mode; full-frame tracking can be more
-sensitive to the estimated seed and its tracking support region. Automatic seed
-estimation searches dark, enclosed regions at multiple intensity
-thresholds and scores compactness, solidity and local contrast. Ambiguous or
-low-contrast images require a tighter ROI or manual selection; Run stays disabled
-when estimates are missing. With ROI off, the first full-frame estimate defines a
-local tracking/search support region for the second frame. Returned centers are
-mapped back to full-frame pixels and no measurement images are resized or cropped
-by this search. Both estimates are heuristic initializations, not anatomical
-accuracy claims. The effective run configuration records
-`module2.initialization_source: manual` or `automatic`, with fixed coordinates and
-`initialization_mode: manual` so downstream notebooks never ask for points again.
+### 3.2 What the screen contains
+
+| Area/control | What it does | What you need to provide |
+| --- | --- | --- |
+| **Choose video…** | Loads video metadata and any saved profile for that file | One readable video |
+| **Primary (s)** / **Secondary (s)** | Choose the two comparison frames | Two different, ordered times within the recording |
+| **Apply / load frames** | Loads the chosen frames and prepares their tracked crops/automatic estimates | Click after editing timestamps |
+| **Select eye ROI** | On: use a selected moving eye crop. Off: measure full frames | A rectangle only when enabled |
+| **Calibration** / **Ruler distance (cm)** | On: convert pixels to physical units. Off: pixel-only output | Two ruler marks separated by the entered distance when enabled |
+| **Select pupils manually** | On: you click the pupil seeds. Off: the app estimates them | Center + boundary on each comparison frame, or successful automatic estimates |
+| **Request GPU (OpenCL)** | Requests supported Module 1 operations on an OpenCL GPU | Nothing to select in the image; read the availability message |
+| **Setup** tab | Shows the image and selection tools | Make or inspect selections here |
+| **Results & log** tab | Shows execution messages, figures and notebook reports | Available results from the current session's last run |
+| Bottom status / **Run all notebooks (0–4)** | Explains missing setup and starts the complete pipeline when ready | Finish the required setup first |
+
+The Primary and Secondary times are **comparison timestamps**, not the beginning
+and end of a video clip. Modules 3 and 4 still process the whole recording.
+
+### 3.3 First run, step by step
+
+1. **Open the app and choose a video.** Click **Choose video…**, select your file,
+   and wait for the dimensions, last-frame time and preview to appear. The first
+   scan can take a while because the app decodes the recording. An unchanged
+   video's saved settings may be restored automatically.
+2. **Check the comparison times.** For A_2, 1 s and 5 s are the existing example
+   values; they are not universal settings for every video. Choose a useful early
+   frame and a later comparison frame. Both must be within the displayed
+   last-frame time. Enter decimals with a dot, then click **Apply / load frames**
+   and wait. Editing the text alone does not apply new timestamps.
+3. **Choose whether to use an eye ROI.** An ROI means “region of interest”: a
+   rectangle around the eye. Leaving **Select eye ROI** on is recommended,
+   especially for automatic pupil initialization. Click **1. Eye ROI**, drag a
+   rectangle around the entire eye with some surrounding context, and click
+   **Confirm selection**. Avoid unrelated dark objects and the ruler where
+   practical. Wait while the app follows that eye to the second comparison frame.
+   If you turn ROI off, skip drawing the rectangle; measurements use full frames.
+4. **Choose whether to calibrate.** If the video has a ruler, enable
+   **Calibration** and enter the distance you will mark, normally `1.0` cm. Click
+   **2. Ruler endpoints**, click the two ruler marks exactly that distance apart,
+   then **Confirm selection**. The selection is on the full primary frame, even
+   when the eye ROI is cropped. If there is no ruler, turn Calibration off and
+   skip this step. An old scale is not used while calibration is disabled.
+5. **Choose one pupil-initialization method.** These circles initialize the
+   algorithms; they are not the final pupil measurements.
+
+   | Method | What to do |
+   | --- | --- |
+   | Manual, checkbox on | Click **3. Primary pupil**. Click the pupil center once, then one point on its boundary. Inspect the circle and click **Confirm selection**. Repeat with **4. Secondary pupil** on the second image. You do not need to trace the whole outline. |
+   | Automatic, checkbox off | Wait for preparation. Click **3. Primary estimate** and **4. Secondary estimate** to inspect the blue dashed circles. These are read-only previews, so no pupil clicks or confirmation are needed. If an estimate is wrong or unavailable, use a tighter eye ROI or turn manual selection back on. |
+
+6. **Choose CPU or optional GPU processing.** Leave **Request GPU (OpenCL)** off
+   for the normal CPU workflow. If you enable it, wait for the message beside the
+   checkbox. An unavailable GPU falls back to CPU; it does not prevent running.
+   This option currently affects spatial filters and Fourier transforms in
+   Module 1, not segmentation/tracking or the whole pipeline. See
+   [the GPU details](#11-optional-opencl-gpu-requests).
+7. **Check the bottom status.** When it says **Ready: run all notebooks.**, click
+   **Run all notebooks (0–4)**. The GUI changes to **Results & log**, creates a
+   separate output directory and runs Modules 0, 1, 2, 3 and 4 in order.
+8. **Wait for completion and inspect the outputs.** Some cells take much longer
+   than others, especially full-video tracking and compression. A stationary
+   progress bar during a long cell does not by itself mean the app has frozen.
+   Look for **Run complete** before treating the output as a finished run.
+
+### 3.4 Correcting selections and viewing presets
+
+Choose the corresponding selection button again to redo a confirmed selection.
+Shortcuts act on the image canvas; choose a selection tool first so it has focus.
+
+| Control | Effect |
+| --- | --- |
+| **Zoom +**, **Zoom −**, **Fit**, scrollbars | Change only the display; stored coordinates remain original-image pixels |
+| **Space** or **Reset** | Clear the current draft points/rectangle, allowing another attempt |
+| **Backspace** or right click | Undo the last draft point, or clear the draft rectangle |
+| **Enter** or **Confirm selection** | Save a valid manual selection |
+| **Show saved presets** | Show/hide blue dashed saved selections and automatic estimates; it does not delete them |
+
+Green/yellow marks show the current draft. Blue dashed marks show saved values
+or automatic estimates. Resetting a draft does not erase a previously confirmed
+selection; confirming a replacement updates it. Automatic estimate previews have
+no editable draft, so Confirm is disabled there.
+
+### 3.5 Why Run may be disabled
+
+Read **Setup needed:** at the bottom. Fix the reported item, then wait for any
+background preparation to finish.
+
+| Situation | What to do |
+| --- | --- |
+| No video / unreadable video | Choose a readable video; check the error message |
+| Times changed, out of range, reversed or decode to the same frame | Correct them and click Apply; Primary must be earlier than Secondary |
+| ROI enabled but no rectangle saved | Draw an eye rectangle and confirm it |
+| Calibration enabled but points/distance missing | Enter a positive distance and confirm two distinct ruler marks, or disable calibration |
+| Manual pupils enabled but points missing | Confirm a center/boundary pair on both frames |
+| Automatic estimate unavailable or eye tracking failed during preparation | Adjust the ROI/timestamps or use manual pupils; the app does not substitute an arbitrary seed/crop |
+| Controls temporarily greyed out | Wait for video preparation, GPU probing or the current run to finish |
+
+A valid setup only means the program has enough inputs to execute. It does not
+establish that a pupil boundary or physiological estimate is correct.
+
+### 3.6 Results, cancellation and saved settings
+
+After a run ends, **Previous figure** / **Next figure** browse its saved PNGs.
+Choose a notebook in the report dropdown and click **Open notebook report** to
+read its HTML version in your browser. **Open results folder** opens the latest
+run's directory; before any run in that app session, it opens the general results
+folder. The viewer does not automatically load old runs when you restart the app;
+open those directories/reports directly. The folder button currently uses Linux
+helpers; Windows users can open the displayed path in File Explorer instead.
+
+The main time series is `module3/<video>/pupil_curve.csv`; the response summary is
+`module3/<video>/physiological_parameters.csv`. Inspect `figures/` for segmentation
+and tracking overlays before interpreting the numbers. See [the output table](#7-outputs-and-provenance)
+for the other files.
+
+**Cancel run** asks the notebook worker to stop. Wait until it reports cancellation
+and finishes cleanup before closing the app. It does not cancel video preparation
+or GPU probing. Failed/cancelled runs keep partial outputs and the failed notebook/
+cell information; subsequent notebooks are not executed. Cancellation/kernel
+cleanup has been validated on Linux; Windows remains unverified.
+
+Profiles are saved automatically in ignored `.psib_gui/` files. They remember the
+video's toggles, timestamps, ROI, ruler points and separate manual/automatic pupil
+values. Profiles are editable setup state; each run's `run_config.yaml` is the
+separate snapshot of settings used for that execution.
+
+| Change | What happens to saved selections |
+| --- | --- |
+| Reopen the same unchanged video | Restore its profile, then prepare the comparison views again |
+| Video path/file size/modification time differs | The matching old profile cannot be reused; prepare new selections |
+| Change comparison times | Clear both pupil modes and ruler points, because their reference frames changed |
+| Change the ROI or toggle ROI on/off | Clear both pupil modes; full-frame ruler points remain tied to the primary frame |
+| Switch manual/automatic pupils | Retain manual points; automatic estimates are recomputed when preparing that mode |
+| Toggle GPU | Keep the image geometry and pupil/ruler selections |
+| Hide saved presets | Hide overlays only |
+
+Automatic initialization searches dark, compact regions with local contrast; it
+is a heuristic, not anatomical validation. With ROI off, a local eye support
+region follows the first estimate to help locate the second, but the measurement
+frames remain full-size. The effective configuration records
+`module2.initialization_source: manual` or `automatic` and freezes the resulting
+coordinates with `initialization_mode: manual`, so notebooks do not ask for points.
 
 ## 4. Configuration and precedence
 
@@ -161,13 +279,19 @@ inputs, prepare an appropriate configuration and run the notebook/runner directl
 
 ## 5. Architecture and data flow
 
-```text
-GUI setup → decoded comparison frames → confirmed original-pixel selections
-    → isolated run configuration → notebook worker → kernels for Modules 0–4
-    → tables + masks + figures + executed notebooks + HTML + execution status
+```mermaid
+flowchart TD
+    UI["DesktopApp: buttons and Setup"] --> PREP["task(): load frames / prepare estimates"]
+    PREP --> QUEUE["events queue → poll()"]
+    QUEUE --> UI
+    UI -->|Run| CFG["effective_config() → run_config.yaml"]
+    CFG --> WORKER["validate_notebooks.py subprocess"]
+    WORKER --> KERNEL["execute_notebooks(): kernels for Modules 0–4"]
+    WORKER -->|JSON progress events| QUEUE
+    KERNEL --> OUT["CSVs, figures, notebook copies, HTML and status"]
 ```
 
-The Tk main thread handles widgets only. Frame preparation runs in a background
+The Tk main thread owns widget updates. Expensive frame preparation runs in a background
 thread; notebook execution runs in a subprocess using the current Python
 interpreter. A queue delivers progress/errors to the GUI without blocking its
 main event loop.
@@ -209,6 +333,304 @@ partial notebook/report. CLI exit codes are 0 (complete), 1 (failed) and 130
 300-second per-cell timeout unless positive integer notebook metadata
 `execution_timeout_s` overrides it. Module 4 uses 1800 seconds because its
 whole-video multi-pass cell is substantially longer; cancellation remains available.
+
+### 5.1 Functions behind the buttons
+
+These are developer entry points, not commands the user needs to type. `gui.py`
+adds the local `src/` folder to Python's import path and calls
+`psib.desktop.main(ROOT)`. That function creates the Tk window, constructs
+`DesktopApp(window, root)`, and starts `window.mainloop()`, the event loop that
+waits for clicks and keyboard input. `DesktopApp.__init__` creates the widgets,
+loads the base YAML and connects each control to a callback.
+
+| Action | Main functions | Input → result |
+| --- | --- | --- |
+| Choose a recording | `DesktopApp.browse()`, `video_io.scan_video()`, `ProfileStore.load()` | Video path → dimensions, last-frame time and restored/new `Setup`; then calls `apply()` |
+| Apply times / prepare images | `DesktopApp.apply()`, `Setup.change_geometry()`, `prepare_views()`, `video_io.read_frames_at_times()`, `roi.tracked_frame_rois()` | Setup + base settings → two decoded frames and tracked comparison crops; exceptions leave setup blocked |
+| Estimate pupils automatically | `estimate_comparison_pupils()`, `estimate_pupil()` | Comparison frames/crops → two crop-local center/radius dictionaries; full-frame searches map back to full-frame coordinates |
+| Change ROI/calibration/pupil mode | `DesktopApp.toggle()` | Checkbox values → updated setup and another preparation pass |
+| Request GPU | `DesktopApp.toggle_gpu()`, `acceleration.probe_gpu()` | Requested flag → saved preference and background availability message; does not alter selections |
+| Begin a selection or preview | `DesktopApp.select(mode)`, `show_image()`, `fit()` | `roi`, `ruler`, `pupil0` or `pupil1` → correct image and editing mode; automatic pupil previews keep editing off |
+| Convert mouse input | `mapped()`, `CanvasGeometry.point()`, `CanvasGeometry.rectangle()` | Scrolled/zoomed canvas position → original-image coordinates or an ROI rectangle |
+| Draw and edit a draft | `press()`, `drag()`, `release()`, `reset()`, `undo()`, `render()` | Mouse/keyboard events → draft marks and display preview |
+| Save a selection | `confirm()`, `ProfileStore.save()` | Valid draft → stored ROI/ruler/pupil values; ROI changes trigger preparation again |
+| Decide whether Run is enabled | `refresh()`, `Setup.missing()` | Current setup, loaded crops, applied times and busy state → enabled/disabled controls and missing-input message |
+| Build and start a run | `run()`, `effective_config()`, `execute_notebooks()` | Valid setup → isolated YAML, runner subprocess, notebook kernels and outputs |
+| Receive progress / show results | `task()`, `poll()`, `append_log()`, `figure()` | Queued worker events → Tk updates, progress, completion/error status and result images |
+| Stop / exit | `cancel()`, runner `run_client()`, `close()` | Cancel request → kernel cleanup on the tested Linux path; closing is blocked while busy |
+| Open output files | `open_results()`, `system_open.open_folder()`, `open_report()` | Latest run path/report choice → system folder opener or browser |
+
+### 5.2 State that connects those functions
+
+The GUI keeps a few distinct kinds of state. Mixing them up is a common source
+of stale selections or incorrect coordinate conversions.
+
+| State | Purpose |
+| --- | --- |
+| `base` | Algorithm settings read from local/example YAML; not rewritten by the GUI |
+| `setup` (`Setup`) | Video identity/metadata, times, toggles, ROI, ruler points, manual pupil values and automatic pupil values |
+| `setup.active_pupils` | Chooses manual or automatic values according to the toggle; `effective_config()` copies only the active pair |
+| `frames` | Two `(upright RGB image, actual timestamp, frame index)` entries decoded from the video |
+| `crops` | Two `(RGB measurement image, full-frame ROI rectangle)` entries; ROI-off images remain full-frame |
+| `mode` / `view_mode` | Current editable tool versus displayed view; automatic estimates use a pupil view with `mode=None` |
+| `points`, `rect`, `drag_start` | Unsaved draft; separate from values already in `setup` |
+| `image`, `photo`, `scale`, `geometry` | Original image, Tk display image and coordinate mapping; zoom changes these display values, not stored measurements |
+| `busy`, `process`, `events` | Preparation/run state, active subprocess and thread-safe event queue |
+| `last_run`, `figures`, `figure_index` | Latest run in this app session and its result-browser position |
+
+An ROI is `(x, y, width, height)` in original full-frame pixels. Ruler points also
+use full-frame pixels. Pupil centers use the **displayed comparison crop's local
+coordinates**, including its tracked origin on the second frame. A full-frame
+pupil center therefore already uses full-frame coordinates. `saved_overlays()`
+adds the crop origin when showing the primary pupil over a full-frame preview.
+
+### 5.3 What happens after clicking Run
+
+1. `run()` checks that timestamps were applied, rereads the ruler distance and
+   calls `effective_config()`. That function validates `Setup`, copies the base
+   settings and writes fixed numeric pupil initializations, including automatic
+   estimates. It clears unrelated manual annotation paths to avoid cross-video
+   reuse and respects the ROI/calibration/GPU toggles.
+2. The GUI writes `run_config.yaml` in a new
+   `results/gui/<video>_<timestamp>_<id>/` folder. It launches
+   `validate_notebooks.py --config <file> --json-events` with the five explicit
+   notebook names, using the same Python interpreter that launched the GUI.
+3. The runner sets `PSIB_RUN_CONFIG` and `PSIB_NONINTERACTIVE=1`, preventing old
+   video-path overrides and interactive selection prompts. `load_config()` in
+   each notebook reads those prepared settings and configures CPU/OpenCL dispatch.
+4. `execute_notebooks()` starts a fresh kernel for each notebook in sequence.
+   Arrays in one kernel are not passed directly to the next; notebooks read the
+   same video/configuration and use their processing helpers and saved outputs.
+   The runner saves executed copies and attempts HTML export without editing
+   the source notebooks. HTML-export errors are logged separately.
+5. A GUI monitor thread reads the runner's JSON lines and enqueues `run_event`
+   messages. `poll()` runs on Tk's main thread about every 100 ms and consumes
+   these messages. Notebook progress comes from completed code cells, not elapsed
+   time or a frame counter. Each of the five modules occupies 20% of the bar.
+   Stream output is normally forwarded after a cell finishes, so long cells can
+   have quiet logs while still working.
+6. On worker exit, `poll()` reads `validation/status.json`, reports complete/
+   failed/cancelled status, and loads the saved figures and HTML filenames into
+   the Results controls. `validation/execution.jsonl` retains structured events;
+   cell indices in failures are zero-based positions in the notebook, including
+   markdown cells in that indexing.
+
+`task(function, callback)` uses a background thread for preparation/probing and
+returns its result through the same queue. Widget updates belong in the callback,
+which `poll()` invokes on the main thread. Notebook execution uses a subprocess
+so an active kernel can be cancelled independently of Tk. A CPU/GPU switch cannot
+change a run already in progress because its effective configuration is frozen.
+
+### 5.4 Where to look when extending the GUI
+
+- **Add a checkbox:** create its Tk variable/widget/callback in `DesktopApp`,
+  include it in busy-state handling, add a backward-compatible default to
+  `Setup` if remembered per video, restore it in `browse()`, and pass it through
+  `effective_config()`. Implement its processing effect in the relevant helper
+  or `load_config()`; a checkbox alone does not change notebook behavior.
+- **Add a selection type:** update `select()`, mouse handling, `confirm()`,
+  `saved_overlays()` and `Setup.missing()`. Define the coordinate system and
+  what changes invalidate it. Keep new drafts separate from saved values.
+- **Add a processing module:** add its notebook to the explicit list in `run()`
+  and update the button label/progress calculation in `poll()`. The CLI's default
+  discovery of notebook files does not update the GUI's explicit list.
+- **Keep heavy work out of click callbacks:** use `task()` or the notebook worker,
+  then deliver results through `events`. Never update Tk widgets in worker threads.
+- **Check changes:** model tests cover geometry, invalidation, profiles and config
+  precedence; initialization/acceleration tests cover optional modes; runner tests
+  cover progress, failure, cancellation and timeouts. Follow with a live Tk check
+  and prepared A_2 notebook execution when the data flow changes.
+
+
+### 5.5 Frontend structure and layout
+
+Here, **frontend** means the desktop window, controls and image display you
+interact with. It is built in [desktop.py](src/psib/desktop.py) using Python's
+**Tkinter** and **ttk** widgets. It is not a website: there is no HTML/CSS/JavaScript
+interface or web server to start. HTML files are exported notebook reports opened
+later in your browser.
+
+Tkinter creates the window, receives input and runs the event loop. `ttk` supplies
+the themed buttons, entries, tabs and progress bar. **Pillow** converts image
+arrays into images Tk can display. `ttk.Notebook` is the name of the **tab widget**;
+it does not execute Jupyter notebooks.
+
+`DesktopApp.__init__()` builds this simplified widget tree, from top to bottom:
+
+```text
+Tk window: “PSIB — Pupil analysis”
+├── Header: title, video path, Choose video and video details
+│   ├── Timestamp row: Primary, Secondary, Apply, Calibration, ROI, ruler distance
+│   ├── Pupil row: manual-selection checkbox and explanation
+│   └── GPU row: OpenCL checkbox and availability message
+├── ttk.Notebook: expanding central area
+│   ├── Setup tab
+│   │   ├── Tool row: ROI, ruler, pupils/estimates, presets, zoom and Fit
+│   │   ├── Image area: Canvas with vertical/horizontal scrollbars
+│   │   ├── Selection description
+│   │   └── Keyboard hints, Reset and Confirm selection
+│   └── Results & log tab
+│       ├── Folder/report controls and figure-navigation buttons
+│       ├── Figure display
+│       └── Read-only execution log
+└── Bottom bar: status text, progress bar, Run and Cancel
+```
+
+The starting window is **1280 × 850**, with a **1000 × 700** minimum. Layout uses
+Tk's `pack()` geometry manager. `fill='x'` stretches rows horizontally;
+`fill='both', expand=True` gives the central tabs/image areas the remaining space.
+`side='left'` / `'right'` arranges controls within a row. Padding separates widgets.
+There are no web-style responsive breakpoints; resizing redistributes available
+space, and the canvas scrollbars help inspect a zoomed image. **Fit** explicitly
+recalculates the image scale for the current canvas size.
+
+### 5.6 Widgets, values and event bindings
+
+Widgets are the visible controls. Tk variables hold the values those controls
+display. The persistent `Setup` object is a separate layer: typing into a field
+is not the same as applying it to the analysis.
+
+| Widget | Use in this app | How it connects to Python |
+| --- | --- | --- |
+| `ttk.Entry` | Read-only video path; editable times/distance | `textvariable` connects it to a `StringVar` such as `t1`, `t2` or `distance` |
+| `ttk.Checkbutton` | ROI, calibration, manual pupils, GPU and overlays | `variable` connects to a `BooleanVar`; `command` handles the click |
+| `ttk.Button` | Choose, Apply, selection tools, Run and navigation | `command=self.method` calls a method without a mouse-event argument |
+| `ttk.Label` | Title, metadata, hints, status and result image | Static `text`, changing `textvariable`, or a Tk image |
+| `tk.Canvas` | Setup image and editable overlay shapes | Draw image/lines/rectangles/circles and bind mouse/keyboard events |
+| `ttk.Scrollbar` | Move around the setup canvas | Its `command` calls `canvas.xview`/`yview`; the canvas updates the scrollbar position |
+| `ttk.Combobox` | Choose an exported notebook report | Read-only list of HTML filenames tied to `report_names` |
+| `tk.Text` | Execution log | `append_log()` briefly enables writing, appends text, scrolls down and disables editing again |
+| `ttk.Progressbar` | Completed-cell progress | `poll()` assigns its numeric `value`, with a maximum of 100 |
+
+`StringVar.trace_add('write', ...)` watches the time/distance fields and calls
+`refresh()` as you type. This updates warnings and button eligibility; it does
+**not** decode new frames. The Apply button calls `apply()` to do that. Checkbox
+callbacks explicitly copy the chosen values into `Setup` and start any needed
+preparation/probe.
+
+Canvas `.bind()` callbacks receive a Tk event, including the pointer's `x`/`y`:
+
+| Tk event | Frontend handler | Effect |
+| --- | --- | --- |
+| `<ButtonPress-1>` | `press(event)` | Start an ROI drag, or add a point if fewer than two are present |
+| `<B1-Motion>` | `drag(event)` | Update a draft rectangle while the left mouse button is held |
+| `<ButtonRelease-1>` | `release(event)` | Finish the drag |
+| `<space>` | `reset()` through a small lambda | Clear the draft |
+| `<BackSpace>` / `<Button-3>` | `undo()` through a lambda | Undo a point/rectangle |
+| `<Return>` | `confirm()` through a lambda | Validate and save a manual draft |
+
+`select()` gives the canvas keyboard focus. Without that focus, typing in a time
+entry edits the entry instead of triggering image shortcuts. Mouse clicks in an
+automatic estimate preview do not add points because its editable `mode` is None.
+
+The selection buttons are created in a loop with `lambda m=mode: self.select(m)`.
+The default argument captures each button's own mode; removing it would make the
+buttons refer to the loop's final mode. Use this pattern when adding similar
+controls. The window-close button is connected with
+`window.protocol('WM_DELETE_WINDOW', self.close)` so it can check the busy state.
+
+### 5.7 How the image canvas is rendered
+
+The display pipeline in `show_image()`, `fit()` and `render()` is:
+
+```text
+Original RGB NumPy array (self.image)
+    → Pillow Image.fromarray()
+    → display-only resize using self.scale and bilinear interpolation
+    → ImageTk.PhotoImage (self.photo)
+    → canvas image at top-left (0, 0)
+    → saved/automatic overlays
+    → draft points, ROI or confirmation circle/line
+```
+
+`self.image` stays at its original resolution. `self.photo` holds the scaled Tk
+image, and keeping that Python reference prevents it from disappearing when
+Python releases an otherwise unreferenced image. `render()` clears the canvas and
+recreates the image and overlays on each redraw; it does not run segmentation.
+
+Overlay colors and shapes are defined directly in `render()`:
+
+| Appearance | Meaning |
+| --- | --- |
+| Dark canvas background (`#20252b`) | Empty display area outside the shown image |
+| Blue dashed shapes (`#55c5ff`, tag `saved`) | Previously stored ROI/ruler/pupil values or an automatic pupil estimate |
+| Green rectangle/crosses (`#00ff70`) | Current draft rectangle or clicked points; numbered crosses preserve click order |
+| Yellow circle/line | Preview of the two-point pupil/ruler draft before confirmation |
+
+The geometry of these overlays comes from saved state/draft coordinates, not from
+the resized pixels. A blue pupil circle is an initialization overlay; it is not
+necessarily the segmentation boundary measured later.
+
+`mapped(event)` first converts the pointer from the visible viewport to the
+scrolled canvas using `canvasx()` and `canvasy()`. `CanvasGeometry.point()` then
+converts from canvas space to original-image space. With the current zero-offset
+image placement, this is:
+
+```text
+image_x = canvas.canvasx(event.x) / scale
+image_y = canvas.canvasy(event.y) / scale
+```
+
+Points outside the image are ignored. `CanvasGeometry.rectangle()` normalizes a
+drag in either direction into `(x, y, width, height)` and clips its extent to the
+image. When drawing overlays, `render()` multiplies original coordinates by the
+same scale. This is why zooming and scrolling must never directly modify saved
+pupil centers, ruler points or ROI dimensions.
+
+The Results figure display is simpler: `figure()` opens a saved PNG, makes a
+thumbnail bounded by **1000 × 470**, keeps it in `self.result_photo`, and shows it
+with the filename in a label. It does not provide the Setup canvas's zoom/point
+editing. Previous/Next wrap around the saved figure list.
+
+### 5.8 How the frontend decides what is clickable
+
+`refresh()` derives control states from the current data instead of treating
+button clicks as proof that setup is complete. It combines `busy`, whether frames
+and crops exist, the toggles, `Setup.missing()` and unapplied text edits.
+
+| Frontend situation | Selection/confirmation behavior | Run / Cancel behavior |
+| --- | --- | --- |
+| No video/frames | Image-selection tools are disabled | Run disabled |
+| Frames ready, some settings missing | Only applicable tools are enabled; ROI/ruler tools follow their toggles | Run disabled; status lists missing inputs |
+| Manual tool active | Confirm is available; `confirm()` checks the draft and reports invalid/missing points | Run still follows the saved setup, not the unsaved draft |
+| Automatic pupil preview | Primary/Secondary buttons inspect estimates; there is no editable pupil tool | Confirm disabled; Run requires both estimates |
+| Valid setup | Manual selections may be revisited | Run enabled |
+| Preparation or GPU probe active | Settings/selection controls and Confirm are disabled | Run disabled; Cancel does not stop these preparation threads |
+| Notebook process active | Settings/selection controls are disabled | Run disabled; Cancel enabled until cancellation is requested |
+| Run ended | Setup controls become available and saved outputs populate Results | Run eligibility is recalculated; Cancel disabled |
+
+Zoom and saved-overlay controls are not part of the disabled settings list; not
+every widget is locked while busy. `close()` blocks window closure while work is
+active. Progress is determinate by completed notebook cells, so an expensive cell
+may leave the bar unchanged for a while. The fixed status label and modal message
+boxes provide missing-input/error feedback; there is no separate validation form.
+
+An important distinction: **Run uses confirmed selections.** If a valid saved
+selection already exists and you start a new draft, the saved selection remains
+active until you confirm its replacement. Resetting or hiding the draft does not
+change that saved input.
+
+### 5.9 Changing the look without changing the analysis
+
+The app currently has no separate frontend framework, stylesheet or custom
+`ttk.Style` theme. System ttk styling controls most widgets, so the app can look
+different on Linux and Windows. The title font, padding, wrapping widths, initial
+window size and canvas colors are set in `DesktopApp.__init__()` / `render()`.
+
+For a visual change, locate the relevant area in the widget tree above. Adjust
+labels, packing/padding, fonts or drawing styles there; keep the callbacks and
+coordinate conversions intact. For a behavior change, follow the function/state
+map in Sections 5.1–5.4 as well. Do not put segmentation loops inside `render()` or
+a button callback, and do not update widgets from a worker thread. Background
+results must pass through `events` to `poll()` on Tk's main thread.
+
+A frontend check should include a smaller window, zoom plus scrolling, dragging
+in both directions, keyboard focus after editing an entry, read-only automatic
+previews, busy-state controls, and Results navigation. Compare a stored coordinate
+before/after zoom to confirm a visual change has not changed measurement pixels.
+Platform differences in fonts, scale and folder opening also need a live check;
+model tests alone do not verify appearance.
+
 
 ## 6. Tracking, segmentation and measurement
 
