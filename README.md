@@ -37,46 +37,101 @@ python gui.py
 Tkinter comes from the operating system (`python3-tk` on Debian/Ubuntu), not pip.
 Use a desktop session. Folder opening needs the system's `xdg-open` or `gio`.
 
-### Windows (PowerShell)
+### Windows (Command Prompt / CMD)
+
+Use **Command Prompt (CMD)** for the steps below. Run one command at a time and
+press **Enter** after each command. Wait for it to finish before entering the next.
+
+**First-time setup**
 
 1. Install **64-bit Python 3.12** with pip, the Python launcher (`py`), and
    **Tcl/Tk and IDLE** enabled. See the [Python Windows installation guide](https://docs.python.org/3.12/using/windows.html).
-2. Clone/download this repository, then open PowerShell in its root folder
-   (the folder containing `gui.py` and `requirements.txt`).
-3. Create the environment, install dependencies, and start the app:
+2. Download the repository: on its GitHub page, click **Code → Download ZIP**.
+   Right-click the downloaded ZIP and choose **Extract All**. Open the extracted
+   folder until you can see `gui.py` and `requirements.txt`.
+3. In that folder's File Explorer window, click the **address bar** at the top,
+   type `cmd`, and press Enter. This opens CMD in the correct folder.
+4. Check that Python 3.12 is available:
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe gui.py
+   ```cmd
+   py -3.12 --version
+   ```
+
+   It should print `Python 3.12.x`. If the command is not recognized, check the
+   Python installation before continuing.
+5. Create the virtual environment. This creates a `.venv` folder for the project's
+   Python packages. You only need to create it once:
+
+   ```cmd
+   py -3.12 -m venv .venv
+   ```
+
+6. **Activate the virtual environment** before installing packages or running the
+   project:
+
+   ```cmd
+   .venv\Scripts\activate.bat
+   ```
+
+   You should now see **`(.venv)`** at the beginning of the command line. Activate
+   it again whenever you open a new CMD window.
+7. Install the required packages inside the activated environment:
+
+   ```cmd
+   python -m pip install -r requirements.txt
+   ```
+
+   This may take a few minutes. Wait until the command line returns. If it reports
+   an error, resolve it before continuing.
+8. Start the desktop app:
+
+   ```cmd
+   python gui.py
+   ```
+
+   Keep CMD open while using the app. Choose your video with **Choose video…**;
+   recordings are not bundled with the repository.
+
+**Opening the app next time**
+
+Open the folder containing `gui.py`, type `cmd` in File Explorer's address bar,
+then run these two commands in order:
+
+```cmd
+.venv\Scripts\activate.bat
+python gui.py
 ```
 
-These commands use the environment's interpreter directly; activation and changes
-to PowerShell's execution policy are unnecessary. See Python's
-[virtual environment documentation](https://docs.python.org/3.12/library/venv.html).
-If `py` is unavailable, use `python --version` to confirm Python 3.12, then replace
-`py -3.12` with `python` in the environment-creation command.
+You do not need to recreate `.venv` or reinstall packages each time. To leave the
+virtual environment after closing the app, type `deactivate` or close CMD.
 
-For later launches, reopen PowerShell in the same folder and run:
+**Optional: open the notebooks in JupyterLab**
 
-```powershell
-.\.venv\Scripts\python.exe gui.py
+With `(.venv)` visible in CMD, install the optional notebook interface once:
+
+```cmd
+python -m pip install -r requirements-notebooks.txt
 ```
 
-Choose your own video in the GUI; recordings are not bundled. For manual YAML
-configuration, use forward slashes in Windows paths, for example
+Then start it with:
+
+```cmd
+python -m jupyterlab
+```
+
+The regular GUI does not require JupyterLab. Advanced terminal execution, also
+from the activated environment, uses a prepared configuration with numeric pupil
+initializations:
+
+```cmd
+python validate_notebooks.py --config "C:/path/to/run_config.yaml"
+```
+
+Replace `C:/path/to/run_config.yaml` with the actual path to your configuration.
+For manual YAML configuration, use forward slashes in Windows paths, for example
 `video_path: "C:/Users/YourName/Videos/A_2.mp4"`. Keep machine-specific settings in
 `config.local.yaml`. Create a new Windows environment rather than copying a Linux
-`.venv` folder.
-
-Optional JupyterLab and terminal execution:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-notebooks.txt
-.\.venv\Scripts\python.exe -m jupyterlab
-# Alternatively, run all notebooks with prepared manual selections:
-.\.venv\Scripts\python.exe validate_notebooks.py --config "C:/path/to/run_config.yaml"
-```
+`.venv` folder. See Python's [virtual environment documentation](https://docs.python.org/3.12/library/venv.html).
 
 **Windows limitations:** end-to-end execution and cancellation/kernel cleanup have
 only been validated on Linux. The **Open results folder** button currently uses
@@ -141,13 +196,15 @@ PYTHONPATH=src python -m unittest discover -s tests -v
 python -m pip check
 ```
 
-On Windows PowerShell:
+On Windows CMD, open the project folder and activate the environment first.
+These checks are for development; they are not needed to launch the app:
 
-```powershell
-$env:PYTHONPATH = "src"
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m pip check
-Remove-Item Env:PYTHONPATH
+```cmd
+.venv\Scripts\activate.bat
+set "PYTHONPATH=src"
+python -m unittest discover -s tests -v
+python -m pip check
+set "PYTHONPATH="
 ```
 
 Synthetic tests check processing and workflow behavior, not anatomical accuracy.
