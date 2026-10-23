@@ -23,7 +23,9 @@ automatic handling of unseen recordings are also pending.
 
 ## Install and open the desktop app
 
-Use Linux and the tested Python 3.12 environment:
+Run commands from the repository root. Python 3.12 is the tested version.
+
+### Linux
 
 ```bash
 python3 -m venv .venv
@@ -34,6 +36,53 @@ python gui.py
 
 Tkinter comes from the operating system (`python3-tk` on Debian/Ubuntu), not pip.
 Use a desktop session. Folder opening needs the system's `xdg-open` or `gio`.
+
+### Windows (PowerShell)
+
+1. Install **64-bit Python 3.12** with pip, the Python launcher (`py`), and
+   **Tcl/Tk and IDLE** enabled. See the [Python Windows installation guide](https://docs.python.org/3.12/using/windows.html).
+2. Clone/download this repository, then open PowerShell in its root folder
+   (the folder containing `gui.py` and `requirements.txt`).
+3. Create the environment, install dependencies, and start the app:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe gui.py
+```
+
+These commands use the environment's interpreter directly; activation and changes
+to PowerShell's execution policy are unnecessary. See Python's
+[virtual environment documentation](https://docs.python.org/3.12/library/venv.html).
+If `py` is unavailable, use `python --version` to confirm Python 3.12, then replace
+`py -3.12` with `python` in the environment-creation command.
+
+For later launches, reopen PowerShell in the same folder and run:
+
+```powershell
+.\.venv\Scripts\python.exe gui.py
+```
+
+Choose your own video in the GUI; recordings are not bundled. For manual YAML
+configuration, use forward slashes in Windows paths, for example
+`video_path: "C:/Users/YourName/Videos/A_2.mp4"`. Keep machine-specific settings in
+`config.local.yaml`. Create a new Windows environment rather than copying a Linux
+`.venv` folder.
+
+Optional JupyterLab and terminal execution:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-notebooks.txt
+.\.venv\Scripts\python.exe -m jupyterlab
+# Alternatively, run all notebooks with prepared manual selections:
+.\.venv\Scripts\python.exe validate_notebooks.py --config "C:/path/to/run_config.yaml"
+```
+
+**Windows limitations:** end-to-end execution and cancellation/kernel cleanup have
+only been validated on Linux. The **Open results folder** button currently uses
+Linux helpers (`xdg-open`/`gio`); on Windows, open the displayed run path in File
+Explorer. HTML reports can be opened directly in a browser. If Tkinter is missing,
+modify the Python installation to include Tcl/Tk; do not install it through pip.
 
 ## Run an analysis
 
@@ -90,6 +139,15 @@ coordinate and calibration conventions.
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
 python -m pip check
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:PYTHONPATH = "src"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m pip check
+Remove-Item Env:PYTHONPATH
 ```
 
 Synthetic tests check processing and workflow behavior, not anatomical accuracy.
