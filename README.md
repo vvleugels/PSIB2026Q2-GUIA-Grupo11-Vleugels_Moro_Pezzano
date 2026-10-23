@@ -141,6 +141,10 @@ modify the Python installation to include Tcl/Tk; do not install it through pip.
 
 ## Run an analysis
 
+New to the app? Follow the [step-by-step GUI walkthrough](documentation.md#3-desktop-workflow-a-guided-walkthrough).
+The documentation also maps [each button to its Python functions](documentation.md#51-functions-behind-the-buttons).
+See the [frontend guide](documentation.md#55-frontend-structure-and-layout) for widgets, layout, events and image rendering.
+
 1. Choose a video and apply the primary/secondary timestamps.
 2. Enable **Select eye ROI** to draw a crop; disable it for full-frame measurements.
 3. Enable **Calibration** to select two ruler marks a known distance apart,
