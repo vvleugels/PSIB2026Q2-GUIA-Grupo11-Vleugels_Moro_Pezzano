@@ -1,0 +1,24 @@
+{
+  "requested": true,
+  "available": false,
+  "device": null,
+  "double_precision": false,
+  "message": "GPU unavailable \u2014 OpenCL runtime/device not found; using CPU.",
+  "umat_attempts": {},
+  "cpu_fallbacks": {
+    "mean_filter": 7,
+    "median_filter": 7,
+    "gaussian_filter": 9,
+    "fft2": 13,
+    "ifft2": 12
+  },
+  "supported_steps": [
+    "mean_filter",
+    "median_filter",
+    "gaussian_filter",
+    "fft2",
+    "ifft2"
+  ],
+  "interpretation": "UMat attempts are not verified GPU kernel executions; OpenCV may use CPU.",
+  "last_fallback_reason": "No usable OpenCL GPU / required float64 support"
+}

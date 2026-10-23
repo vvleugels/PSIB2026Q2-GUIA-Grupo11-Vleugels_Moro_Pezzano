@@ -1,0 +1,56 @@
+{
+  "roi_True": {
+    "initializations": [
+      {
+        "center_xy": [
+          76.1266224799779,
+          54.695802264567796
+        ],
+        "radius_px": 19.601021213799942
+      },
+      {
+        "center_xy": [
+          74.23020625415835,
+          51.51763140385895
+        ],
+        "radius_px": 8.929536745489072
+      }
+    ],
+    "frames": 238,
+    "accepted": 227,
+    "completed_notebooks": [
+      "00_acquisition.ipynb",
+      "01_fundamentals_enhancement.ipynb",
+      "02_segmentation_morphology.ipynb",
+      "03_features_temporal.ipynb",
+      "04_compression.ipynb"
+    ]
+  },
+  "roi_False": {
+    "initializations": [
+      {
+        "center_xy": [
+          248.06814814814814,
+          411.47555555555556
+        ],
+        "radius_px": 19.847127856504603
+      },
+      {
+        "center_xy": [
+          206.23236245954692,
+          443.43948220064726
+        ],
+        "radius_px": 9.053441096750236
+      }
+    ],
+    "frames": 238,
+    "accepted": 97,
+    "completed_notebooks": [
+      "00_acquisition.ipynb",
+      "01_fundamentals_enhancement.ipynb",
+      "02_segmentation_morphology.ipynb",
+      "03_features_temporal.ipynb",
+      "04_compression.ipynb"
+    ]
+  }
+}

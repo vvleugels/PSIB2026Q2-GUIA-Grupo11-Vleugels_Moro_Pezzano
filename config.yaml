@@ -144,3 +144,8 @@ module4:
   jpeg_qualities: [90, 50, 10, 5]
   temporal_qualities: [50, 10]
   save_all_frames: false  # retain every temporal JPEG only for a chosen example
+
+# Optional GPU dispatch for spatial filters and Fourier transforms only.
+# Requires an OpenCL GPU runtime/driver; unsupported operations fall back to CPU.
+acceleration:
+  gpu: false

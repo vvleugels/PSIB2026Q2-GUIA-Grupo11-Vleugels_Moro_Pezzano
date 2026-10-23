@@ -5,17 +5,18 @@ Frequencies are expressed in cycles/pixel, so the Nyquist limit is 0.5.
 from __future__ import annotations
 
 import numpy as np
+from .acceleration import fft2, ifft2
 
 
 # ---------------------------------------------------------------- transform
 def fft2c(gray: np.ndarray) -> np.ndarray:
     """Centred 2-D DFT (zero frequency in the middle)."""
-    return np.fft.fftshift(np.fft.fft2(gray.astype(np.float64)))
+    return np.fft.fftshift(fft2(gray.astype(np.float64)))
 
 
 def ifft2c(F: np.ndarray) -> np.ndarray:
     """Inverse of :func:`fft2c` (real part)."""
-    return np.fft.ifft2(np.fft.ifftshift(F)).real
+    return ifft2(np.fft.ifftshift(F)).real
 
 
 def log_magnitude(F: np.ndarray) -> np.ndarray:
@@ -59,7 +60,7 @@ def psd2d(gray: np.ndarray, window: bool = True) -> np.ndarray:
     g = g - g.mean()
     h, w = g.shape
     win = np.outer(np.hanning(h), np.hanning(w)) if window else np.ones_like(g)
-    F = np.fft.fftshift(np.fft.fft2(g * win))
+    F = fft2c(g * win)
     return np.abs(F) ** 2 / np.sum(win ** 2)
 
 

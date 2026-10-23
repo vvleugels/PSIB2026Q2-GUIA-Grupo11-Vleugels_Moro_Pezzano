@@ -57,6 +57,13 @@ def load_config(path: str | Path | None = None) -> dict:
     out = Path(cfg.get("output_dir", "results"))
     out = out if out.is_absolute() else root / out
     (out / "figures").mkdir(parents=True, exist_ok=True)
+    acceleration = cfg.get('acceleration', {})
+    if not isinstance(acceleration, dict):
+        raise ValueError('acceleration must be a mapping with gpu: true or false')
+    cfg['acceleration'] = {**acceleration, 'gpu': acceleration.get('gpu', False)}
+    from .acceleration import configure
+    info = configure(cfg['acceleration']['gpu'], out/'acceleration')
+    print(info['message'])
     cfg["_root"] = root
     cfg["_output_dir"] = out
     return cfg

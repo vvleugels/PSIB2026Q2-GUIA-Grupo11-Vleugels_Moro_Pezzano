@@ -145,8 +145,10 @@ modify the Python installation to include Tcl/Tk; do not install it through pip.
 2. Enable **Select eye ROI** to draw a crop; disable it for full-frame measurements.
 3. Enable **Calibration** to select two ruler marks a known distance apart,
    normally 1 cm. Disable it for pixel-only measurements.
-4. Select the pupil center and a boundary point in each comparison frame.
-5. Confirm each selection, then click **Run all notebooks (0–4)**.
+4. Leave **Select pupils manually** on to select a center and boundary point in
+   each comparison frame. Turn it off to estimate both pupils automatically. Use
+   **Primary estimate** / **Secondary estimate** to review the blue dashed circles.
+5. Confirm any manual selections, then click **Run all notebooks (0–4)**.
 6. Inspect the plots and executed notebook reports in **Results & log**.
 
 Use Zoom/Fit and scrollbars. Space resets a draft selection; Backspace/right click
@@ -159,6 +161,40 @@ are available. Each run gets its own `results/gui/<video>_<run id>/` directory,
 including configuration, CSVs, figures, notebooks, HTML reports and execution status.
 Failed/cancelled runs retain labelled partial outputs. Source notebooks and prior
 results are preserved.
+
+An eye ROI is recommended for automatic mode. Automatic initialization is a
+heuristic, not a validated pupil boundary. If it
+cannot find an unambiguous candidate, Run stays disabled: select a tighter eye ROI
+or turn manual selection back on. Full-frame mode follows a local eye region to
+estimate the second pupil, while keeping measurement frames full-size. Manual
+points and automatic estimates are stored separately in the per-video profile.
+
+## Optional GPU processing
+
+1. Start the app from your activated virtual environment with `python gui.py`.
+2. Tick **Request GPU (OpenCL)**, below the pupil-selection toggle.
+3. Read the message beside it. **OpenCL GPU available** means supported steps
+   can request the GPU. **GPU unavailable … using CPU** means the run will still
+   work, using the CPU instead.
+4. Choose the video, finish your selections, and run the notebooks normally.
+   Leave the checkbox off to use the original CPU paths.
+
+This option applies to mean/median/Gaussian filters and Fourier transforms in
+Module 1. Pupil segmentation, eye tracking, JPEG compression and the remaining
+steps stay on the CPU. Fourier operations require GPU float64 support; otherwise
+those operations also use CPU. OpenCV may silently run individual supported
+operations on the CPU, and small images can be slower with GPU transfers.
+
+The option is remembered per video. No extra pip packages are needed, but a
+working **OpenCL GPU runtime and driver** must be installed on the computer.
+The app does not install or change drivers. If the unavailable message appears,
+leave the checkbox off to continue normally. AMD GPUs use OpenCL here, not CUDA.
+
+Each run records availability, device, UMat dispatch attempts and explicit CPU
+fallbacks in `acceleration/process_*.json` under the run's results folder. These
+reports do not prove that individual GPU kernels ran. See the
+[OpenCV OpenCL notes](https://github.com/opencv/opencv/wiki/OpenCL-optimizations)
+for its automatic per-operation fallback behavior.
 
 ## Configuration and other entry points
 
@@ -185,8 +221,8 @@ python validate_notebooks.py 02_segmentation_morphology.ipynb
 python validate_notebooks.py --config /absolute/path/run_config.yaml --json-events
 ```
 
-Prepared configurations must include manual selections. Kernel execution needs
-local ports. See [documentation.md](documentation.md) for exact configuration,
+Prepared configurations must include numeric pupil initializations (manual or
+GUI-estimated). Kernel execution needs local ports. See [documentation.md](documentation.md) for exact configuration,
 coordinate and calibration conventions.
 
 ## Verify changes

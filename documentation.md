@@ -84,8 +84,11 @@ absolute input/output paths and a `project_root` when project-relative paths are
    entire frame. Full-frame mode still uses an internal eye-motion support region.
 4. Enable calibration if the video has a ruler. Select two marks and enter their
    known distance in centimeters. Calibration off means pixel-only results.
-5. Select the pupil center and one boundary point on each comparison frame.
-6. Confirm selections and click **Run all notebooks (0–4)**.
+5. With **Select pupils manually** on (the default), select the pupil center and
+   one boundary point on each comparison frame. Turn it off to estimate both
+   automatically during background preparation. The primary/secondary buttons
+   become read-only estimate previews; inspect their blue dashed circles.
+6. Confirm any manual selections and click **Run all notebooks (0–4)**.
 7. Inspect the figures and executed HTML reports in **Results & log**.
 
 Zoom/Fit and scrollbars affect only the display. Coordinates map back to original
@@ -96,12 +99,28 @@ saved overlays does not delete the preset.
 
 Profiles live in `.psib_gui/` and are ignored by Git. Reopening the same unchanged
 video restores its settings. Changed file metadata invalidates the saved profile;
-changing timestamps or the ROI invalidates dependent pupil selections. Changing
+changing timestamps or the ROI invalidates both manual pupil selections and
+automatic estimates. The manual-selection toggle is remembered; old profiles
+default to manual mode. Manual points and automatic estimates remain separate,
+so switching modes alone does not discard your manual selections. Changing
 timestamps also clears ruler points because their reference frame changed.
 
 Preparation/tracking errors require a corrected ROI or timestamp. The app does not
 silently substitute another crop. A selected crop should contain the eye with
 some surrounding context while avoiding the ruler and unrelated dark structures.
+
+An eye ROI is recommended for automatic mode; full-frame tracking can be more
+sensitive to the estimated seed and its tracking support region. Automatic seed
+estimation searches dark, enclosed regions at multiple intensity
+thresholds and scores compactness, solidity and local contrast. Ambiguous or
+low-contrast images require a tighter ROI or manual selection; Run stays disabled
+when estimates are missing. With ROI off, the first full-frame estimate defines a
+local tracking/search support region for the second frame. Returned centers are
+mapped back to full-frame pixels and no measurement images are resized or cropped
+by this search. Both estimates are heuristic initializations, not anatomical
+accuracy claims. The effective run configuration records
+`module2.initialization_source: manual` or `automatic`, with fixed coordinates and
+`initialization_mode: manual` so downstream notebooks never ask for points again.
 
 ## 4. Configuration and precedence
 
@@ -125,6 +144,7 @@ not edit the published or local configuration.
 | Group | Key settings |
 | --- | --- |
 | Inputs/outputs | `video_path`, `video_dir`, patterns, `output_dir` |
+| Acceleration | `acceleration.gpu: false` by default; GUI toggle overrides this for the selected video |
 | Representative frames | `frames.primary_time_s`, `secondary_time_s` |
 | ROI | `manual` with `(x,y,w,h)`, `interactive`, or `full_frame` |
 | Calibration | Enabled flag, mode, reference time, distance in cm, full-frame endpoints |
@@ -133,7 +153,8 @@ not edit the published or local configuration.
 | Module 3 | Pupil method, local threshold settings, quality limits, eye tracking, interpolation/smoothing, stimulus and response settings |
 | Module 4 | `jpeg_qualities: [90, 50, 10, 5]`, `temporal_qualities: [50, 10]`, `save_all_frames: false`; absent section uses these defaults |
 
-GUI runs force manual selections, set the video inventory directory to the selected
+GUI runs freeze numeric selections (including automatic estimates) as manual
+notebook settings, set the video inventory directory to the selected
 video's parent, and clear optional reference-mask/manual-measurement paths to avoid
 accidentally reusing annotations from a different video. To use those validation
 inputs, prepare an appropriate configuration and run the notebook/runner directly.
@@ -158,11 +179,12 @@ main event loop.
 | `config`, `video_io` | Configuration resolution, upright decoding and real presentation timestamps |
 | `roi`, `calibration`, `gui` | Crops, comparison-frame tracking, selection windows, ruler conversion and font fallback |
 | `eye_tracking`, `temporal` | Eye translation, independent pupil extraction, quality flags and temporal estimates |
-| `segmentation`, `features` | Candidate masks, morphology, reference overlap, shape and masked texture |
+| `segmentation`, `features`, `initialization` | Candidate masks, morphology, reference overlap, shape/texture and automatic pupil seeds |
 | `color`, `sampling`, `intensity`, `noise`, `filters` | Module 1 image transformations |
 | `edges`, `frequency`, `metrics` | Edge/frequency analysis and image-quality statistics |
 | `compression`, `compression_study` | Self-contained lossless codecs, RGB-safe JPEG and image/temporal experiments |
 | `plotting`, `utils`, `system_open` | Figure output, array conversion and desktop folder opening |
+| `acceleration` | Optional OpenCL dispatch, runtime detection and honest fallback/attempt diagnostics |
 
 Important interfaces:
 
@@ -419,3 +441,46 @@ selected-frame examples, figures and CSVs remain. `save_all_frames: true` saves 
 temporal JPEGs under `temporal_jpeg/<variant>/`; the source video supplies the
 original sequence. Bulk temporal JPEG directories are ignored by Git. Selection
 and bundling of a publishable example video remain a separate future task.
+
+## 11. Optional OpenCL GPU requests
+
+The desktop **Request GPU (OpenCL)** checkbox is off by default and remembered in
+per-video profiles. Older profiles/configurations default to CPU. It does not
+invalidate pupil geometry, timestamps or ruler scale. The effective run YAML uses:
+
+```yaml
+acceleration:
+  gpu: true
+```
+
+`load_config` configures acceleration in each notebook kernel and logs its runtime
+availability. The GUI probes in a worker thread; it remains usable when OpenCL is
+missing. A GPU OpenCL device is required; CPU-only OpenCL devices are not reported
+as GPUs. No CUDA-only dependency is added, and the app does not install drivers.
+The local AMD Radeon system did not expose a working OpenCL runtime at validation
+time, so actual GPU execution and speedup have **not** been verified.
+
+Supported dispatch sites are the mean, median and Gaussian spatial filters and
+forward/inverse 2D Fourier transforms, including the PSD helper, in Module 1.
+OpenCV UMat inputs request its OpenCL path; output returns to NumPy at existing
+module boundaries. Segmentation, morphology, eye motion tracking, temporal curve
+processing, JPEG and lossless codecs remain on their existing CPU paths.
+Small ROIs may be slower due to upload/download and initialization costs.
+
+The original CPU code is used when disabled, unavailable, or when a dispatch raises
+a runtime/OpenCV error. Float64 Fourier math is retained: devices without double
+precision use NumPy rather than silently reducing precision. Complex inverse
+transforms keep both channels, including non-Hermitian magnitude/phase experiments.
+Image dimensions, measurement coordinates and ruler scale are unchanged.
+
+Each kernel writes `acceleration/process_<pid>.json` into the current output
+folder. It records the requested option, runtime availability, device, double
+precision support, UMat attempt counts, explicit CPU fallback counts and the last
+fallback reason. These are **dispatch diagnostics**, not GPU kernel profiling:
+OpenCV can transparently select CPU for individual UMat operations, even when a
+GPU is available. Reports must not be interpreted as confirmed GPU utilization.
+
+Tests exercise CPU parity, actual UMat math running on CPU, mocked GPU availability,
+missing/broken runtimes, CPU-only devices, precision requirements, explicit runtime
+fallback, reports, configuration/profile persistence and reset back to CPU. A
+hardware benchmark is still needed once a working OpenCL GPU runtime is available.

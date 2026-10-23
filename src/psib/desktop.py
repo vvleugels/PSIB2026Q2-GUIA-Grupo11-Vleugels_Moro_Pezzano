@@ -14,6 +14,8 @@ from tkinter import ttk, filedialog, messagebox
 import numpy as np
 from PIL import Image, ImageTk
 import yaml
+from .initialization import estimate_comparison_pupils
+from .acceleration import probe_gpu
 from .gui_model import Setup,ProfileStore,CanvasGeometry,prepare_views,effective_config,saved_overlays
 from .video_io import scan_video, read_frames_at_times
 from .system_open import open_folder
@@ -33,6 +35,9 @@ class DesktopApp:
         self.video_var=tk.StringVar();self.t1=tk.StringVar(value='1.0');self.t2=tk.StringVar(value='5.0')
         self.cal=tk.BooleanVar(value=False);self.roi=tk.BooleanVar(value=True);self.distance=tk.StringVar(value='1.0')
         self.show_saved=tk.BooleanVar(value=True)
+        self.manual_pupils=tk.BooleanVar(value=True)
+        self.gpu=tk.BooleanVar(value=False)
+        self.gpu_details=tk.StringVar(value='GPU off — CPU processing.')
         self.status=tk.StringVar(value='Choose a video to begin.')
         self.details=tk.StringVar(value='No video loaded');self.selection_info=tk.StringVar()
         window.title('PSIB — Pupil analysis');window.geometry('1280x850');window.minsize(1000,700)
@@ -50,6 +55,14 @@ class DesktopApp:
         self.cal_toggle=ttk.Checkbutton(controls,text='Calibration',variable=self.cal,command=self.toggle);self.cal_toggle.pack(side='left',padx=10)
         self.roi_toggle=ttk.Checkbutton(controls,text='Select eye ROI',variable=self.roi,command=self.toggle);self.roi_toggle.pack(side='left')
         ttk.Label(controls,text='Ruler distance (cm)').pack(side='left',padx=5);self.distance_entry=ttk.Entry(controls,textvariable=self.distance,width=5);self.distance_entry.pack(side='left')
+        pupil_controls=ttk.Frame(header);pupil_controls.pack(fill='x')
+        self.pupil_toggle=ttk.Checkbutton(pupil_controls,text='Select pupils manually',variable=self.manual_pupils,command=self.toggle)
+        self.pupil_toggle.pack(side='left')
+        ttk.Label(pupil_controls,text='Off: estimate both pupils automatically; review the blue dashed overlays.').pack(side='left',padx=8)
+        gpu_controls=ttk.Frame(header);gpu_controls.pack(fill='x')
+        self.gpu_toggle=ttk.Checkbutton(gpu_controls,text='Request GPU (OpenCL)',variable=self.gpu,command=self.toggle_gpu)
+        self.gpu_toggle.pack(side='left')
+        ttk.Label(gpu_controls,textvariable=self.gpu_details,wraplength=950).pack(side='left',padx=8)
         self.tabs=ttk.Notebook(window);self.tabs.pack(fill='both',expand=True,padx=10)
         setup_tab=ttk.Frame(self.tabs);results_tab=ttk.Frame(self.tabs);self.tabs.add(setup_tab,text='Setup');self.tabs.add(results_tab,text='Results & log')
         bar=ttk.Frame(setup_tab);bar.pack(fill='x',pady=5)
@@ -111,6 +124,9 @@ class DesktopApp:
         def loaded(s):
             self.setup=s;self.frames=None;self.crops=None;self.mode=None;self.image=None
             self.video_var.set(s.video);self.t1.set(str(s.times[0]));self.t2.set(str(s.times[1]))
+            self.manual_pupils.set(s.manual_pupils)
+            self.gpu.set(s.use_gpu)
+            self.gpu_details.set('Checking GPU…' if s.use_gpu else 'GPU off — CPU processing.')
             self.cal.set(s.calibration_enabled);self.roi.set(s.roi_enabled);self.distance.set(str(s.distance_cm))
             self.details.set(f'{Path(s.video).name}  |  {s.width} × {s.height}  |  last frame: {s.duration:.3f} s')
             self.apply()
@@ -131,30 +147,53 @@ class DesktopApp:
             frames=read_frames_at_times(self.setup.video,self.setup.times)
             try:
                 _,crops=prepare_views(self.setup,self.base)
-                return frames,crops,None
-            except RuntimeError as exc:return frames,None,str(exc)
+            except RuntimeError as exc:return frames,None,str(exc),[None,None]
+            automatic=[None,None]
+            if not self.setup.manual_pupils and (not self.setup.roi_enabled or self.setup.roi is not None):
+                try:
+                    automatic=estimate_comparison_pupils(frames,crops,self.setup.video,
+                        self.base['module3'].get('eye_tracking',{}),self.base['module2'].get('min_component_size',30))
+                except (ValueError,RuntimeError) as exc:
+                    return frames,crops,f'Automatic pupil estimation: {exc}',[None,None]
+            return frames,crops,None,automatic
         def prepared(result):
-            self.frames,self.crops,error=result
+            self.frames,self.crops,error,automatic=result
+            self.setup.automatic_pupils=automatic
             self.store.save(self.setup)
             self.view_mode=None;self.show_image(self.frames[0][0]);self.refresh()
             if error:
-                messagebox.showerror('Tracking preparation failed',error+'\nRedraw the ROI or change comparison timestamps.')
+                messagebox.showerror('Preparation needs attention',error)
+            if self.gpu.get():self.toggle_gpu()
         self.task(prepare,prepared)
+
+    def toggle_gpu(self):
+        if self.busy:return
+        if self.setup:
+            self.setup.use_gpu=self.gpu.get()
+            self.store.save(self.setup)
+        if not self.gpu.get():
+            self.gpu_details.set('GPU off — CPU processing.');return
+        self.gpu_details.set('Checking OpenCL GPU…')
+        self.task(probe_gpu,lambda info:self.gpu_details.set(info['message']))
 
     def toggle(self):
         if not self.setup:return
         self.setup.calibration_enabled=self.cal.get()
+        self.setup.manual_pupils=self.manual_pupils.get()
         self.setup.change_geometry(roi_enabled=self.roi.get())
         self.apply()
 
     def refresh(self):
-        settings=[self.browse_button,self.apply_button,self.time1,self.time2,self.cal_toggle,self.roi_toggle,self.distance_entry]
+        settings=[self.browse_button,self.apply_button,self.time1,self.time2,self.cal_toggle,self.roi_toggle,self.pupil_toggle,self.gpu_toggle,self.distance_entry]
         for widget in settings:widget.configure(state='disabled' if self.busy else 'normal')
         ready=self.setup is not None and self.frames is not None and not self.busy
         crops_ready=ready and self.crops is not None
         for i,button in enumerate(self.select_buttons):
             enabled=ready and (i!=0 or self.roi.get()) and (i!=1 or self.cal.get()) and (i<2 or (crops_ready and (not self.roi.get() or self.setup.roi is not None)))
             button.configure(state='normal' if enabled else 'disabled')
+            if i>=2:
+                prefix='Primary' if i==2 else 'Secondary'
+                button.configure(text=f'{i+1}. {prefix} '+('pupil' if self.manual_pupils.get() else 'estimate'))
         missing=self.setup.missing() if self.setup else ['Choose a video']
         try:unapplied=self.setup and [float(self.t1.get()),float(self.t2.get())]!=self.setup.times
         except ValueError:unapplied=True
@@ -171,7 +210,8 @@ class DesktopApp:
 
     def select(self,mode):
         if not self.frames or self.busy:return
-        self.mode=mode;self.view_mode=mode;self.points=[];self.rect=None;self.drag_start=None
+        self.mode=None if mode.startswith('pupil') and not self.manual_pupils.get() else mode
+        self.view_mode=mode;self.points=[];self.rect=None;self.drag_start=None
         if mode=='roi':self.show_image(self.frames[0][0])
         elif mode=='ruler':self.show_image(self.frames[0][0])
         else:self.show_image(self.crops[int(mode[-1])][0])
@@ -212,6 +252,7 @@ class DesktopApp:
                     (x,y),radius=data
                     self.canvas.create_oval((x-radius)*self.scale,(y-radius)*self.scale,(x+radius)*self.scale,(y+radius)*self.scale,outline=color,width=2,dash=(5,3),tags='saved')
                     self.canvas.create_line((x-3)*self.scale,y*self.scale,(x+3)*self.scale,y*self.scale,fill=color,tags='saved')
+                    self.canvas.create_text(x*self.scale,(y-radius)*self.scale-10,text=label,fill=color,anchor='s',tags='saved')
         if self.rect:
             x,y,rw,rh=self.rect;self.canvas.create_rectangle(x*self.scale,y*self.scale,(x+rw)*self.scale,(y+rh)*self.scale,outline='#00ff70',width=2)
         for i,(x,y) in enumerate(self.points):
@@ -219,7 +260,7 @@ class DesktopApp:
             self.canvas.create_line(x-9,y,x+9,y,fill='#00ff70',width=2)
             self.canvas.create_line(x,y-9,x,y+9,fill='#00ff70',width=2)
             self.canvas.create_text(x+12,y-12,text=str(i+1),fill='#00ff70')
-        info=self.mode or 'Preview'
+        info=self.mode or ('Automatic pupil estimates — review before running' if self.setup and not self.setup.manual_pupils else 'Preview')
         if self.show_saved.get():info+=' | Blue dashed: saved preset; green/yellow: new selection'
         if self.mode and self.mode.startswith('pupil') and len(self.points)==2:
             cx,cy=self.points[0];r=float(np.linalg.norm(np.array(self.points[1])-self.points[0]))
@@ -264,6 +305,7 @@ class DesktopApp:
 
     def confirm(self):
         if not self.mode or self.busy:return
+        if self.mode.startswith('pupil') and not self.setup.manual_pupils:return
         if self.mode=='roi':
             if not self.rect or min(self.rect[2:])<=0:
                 messagebox.showinfo('Selection needed','Drag a rectangle around the entire eye.');return

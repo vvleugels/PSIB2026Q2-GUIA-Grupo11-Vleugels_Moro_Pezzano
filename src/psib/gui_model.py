@@ -26,6 +26,13 @@ class Setup:
     roi: list | None = None
     ruler_points: list | None = None
     pupils: list = field(default_factory=lambda: [None, None])
+    use_gpu: bool = False
+    manual_pupils: bool = True
+    automatic_pupils: list = field(default_factory=lambda: [None, None])
+
+    @property
+    def active_pupils(self):
+        return self.pupils if self.manual_pupils else self.automatic_pupils
 
     def change_geometry(self, times=None, roi_enabled=None, roi=None):
         """Invalidate selections whose coordinate system or reference frame changed."""
@@ -36,7 +43,8 @@ class Setup:
             self.roi_enabled=roi_enabled; changed=True
         if roi is not None and list(roi)!=self.roi:
             self.roi=list(roi); changed=True
-        if changed: self.pupils=[None,None]
+        if changed:
+            self.pupils=[None,None]; self.automatic_pupils=[None,None]
 
     def missing(self):
         """Return user-facing reasons why this setup cannot execute safely yet."""
@@ -59,8 +67,9 @@ class Setup:
                     if not (0<=x<self.width and 0<=y<self.height): raise ValueError()
             except (ValueError,TypeError): errors.append('Select two valid ruler endpoints')
         w,h=self.roi[2:] if self.roi_enabled and self.roi else (self.width,self.height)
-        for i,pupil in enumerate(self.pupils):
-            if pupil is None: errors.append(f'Select pupil {i+1} center and boundary')
+        for i,pupil in enumerate(self.active_pupils):
+            if pupil is None:
+                errors.append(f'Select pupil {i+1} center and boundary' if self.manual_pupils else f'Automatic pupil {i+1} estimate needed')
             elif not (np.isfinite(pupil['center_xy']).all() and np.isfinite(pupil['radius_px'])
                       and 0<=pupil['center_xy'][0]<w and 0<=pupil['center_xy'][1]<h and pupil['radius_px']>0):
                 errors.append(f'Invalid pupil {i+1} selection')
@@ -134,11 +143,13 @@ def effective_config(setup,base,output_dir,project_root):
     cfg=deepcopy(base)
     cfg.update(video_path=str(Path(setup.video).resolve()),video_dir=str(Path(setup.video).resolve().parent),
                output_dir=str(Path(output_dir).resolve()),project_root=str(Path(project_root).resolve()))
+    cfg['acceleration']={**cfg.get('acceleration',{}),'gpu':setup.use_gpu}
     cfg['frames'].update(primary_time_s=setup.times[0],secondary_time_s=setup.times[1])
     cfg['roi']={'mode':'manual','x':setup.roi[0],'y':setup.roi[1],'w':setup.roi[2],'h':setup.roi[3]} if setup.roi_enabled else {'mode':'full_frame'}
     cfg['calibration'].update(enabled=setup.calibration_enabled,mode='manual',frame_time_s=setup.times[0],
         distance_cm=setup.distance_cm,points_xy=setup.ruler_points if setup.calibration_enabled else None)
-    cfg['module2'].update(initialization_mode='manual',initializations=deepcopy(setup.pupils),reference_masks=[None,None])
+    cfg['module2'].update(initialization_mode='manual',initializations=deepcopy(setup.active_pupils),reference_masks=[None,None],
+                          initialization_source='manual' if setup.manual_pupils else 'automatic')
     cfg['module3'].update(roi_reference_time_s=setup.times[0],manual_measurements_csv=None)
     return cfg
 
@@ -151,10 +162,10 @@ def saved_overlays(setup, view):
     if view in (None,'ruler') and setup.calibration_enabled and setup.ruler_points:
         shapes.append(('line',setup.ruler_points,'Saved ruler'))
     index=int(view[-1]) if view and view.startswith('pupil') else 0
-    pupil=setup.pupils[index]
+    pupil=setup.active_pupils[index]
     if pupil and view in (None,'pupil0','pupil1'):
         center=list(pupil['center_xy'])
         if view is None and setup.roi_enabled and setup.roi:
             center=[center[0]+setup.roi[0],center[1]+setup.roi[1]]
-        shapes.append(('circle',[center,pupil['radius_px']],f'Saved pupil {index+1}'))
+        shapes.append(('circle',[center,pupil['radius_px']],f'Saved pupil {index+1}' if setup.manual_pupils else f'Automatic pupil {index+1}'))
     return shapes
