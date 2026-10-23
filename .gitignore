@@ -44,6 +44,7 @@ Thumbs.db
 .psib_gui/
 
 # Reproducible heavyweight GUI-validation artifacts (keep summaries/configs/CSVs)
+results/
 results/gui_validation/**/figures/
 results/gui_validation/**/*.npy
 results/gui_validation/**/validation/*.ipynb

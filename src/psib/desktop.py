@@ -430,3 +430,5 @@ def main(root):
     except tk.TclError as exc:
         raise SystemExit(f'Cannot open desktop GUI: {exc}. Run from a desktop session with a display.')
     DesktopApp(window,root);window.mainloop()
+
+#prueba
