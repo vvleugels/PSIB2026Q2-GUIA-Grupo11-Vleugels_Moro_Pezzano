@@ -45,3 +45,5 @@ Thumbs.db
 
 # Generated analysis outputs, executed reports, validation runs and local backups
 /results/
+
+psib_launch.log

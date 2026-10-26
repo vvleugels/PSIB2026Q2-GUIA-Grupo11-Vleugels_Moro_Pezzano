@@ -1,0 +1,21 @@
+# Text shown above each figure in the "Results & log" tab.
+#
+# - The key is the figure's file name without ".png". When a figure has no text yet,
+#   the app shows that name, so you can copy it from there.
+# - A key ending in "*" applies to every figure whose name starts with it
+#   (for example "m4_*"). An exact name wins over a pattern; among patterns the
+#   longest one wins.
+# - Use "|" for text on several lines. Save the file and press Next / Prev in the app
+#   to see the change; no restart is needed.
+
+# m4_*: |
+#   Module 4 (compression): compares the original image with its compressed versions.
+
+example_figure_name: |
+  Replace this key with a real figure name. Say what the figure shows, what to look
+  at first and how to read the axes or panels.
+
+m0_brightness_vs_time: |
+  Module 0 (brightness): shows how the brightness of the image changes with time.
+
+  ## falta terminar de armar los otros modulos
