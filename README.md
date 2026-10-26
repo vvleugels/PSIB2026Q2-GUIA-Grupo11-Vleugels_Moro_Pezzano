@@ -23,9 +23,12 @@ automatic handling of unseen recordings are also pending.
 
 ## Install and open the desktop app
 
-Run commands from the repository root. Python 3.12 is the tested version.
+Python 3.12 is the tested version. Tkinter comes from the operating system or the
+Python installer, not pip.
 
 ### Linux
+
+Run commands from the repository root.
 
 ```bash
 python3 -m venv .venv
@@ -34,76 +37,70 @@ python -m pip install -r requirements.txt
 python gui.py
 ```
 
-Tkinter comes from the operating system (`python3-tk` on Debian/Ubuntu), not pip.
-Use a desktop session. Folder opening needs the system's `xdg-open` or `gio`.
+Tkinter is provided by `python3-tk` on Debian/Ubuntu. Use a desktop session.
+Folder opening needs the system's `xdg-open` or `gio`.
 
-### Windows (Command Prompt / CMD)
+### Windows
 
-Use **Command Prompt (CMD)** for the steps below. Run one command at a time and
-press **Enter** after each command. Wait for it to finish before entering the next.
-
-**First-time setup**
+**Quick start (recommended)**
 
 1. Install **64-bit Python 3.12** with pip, the Python launcher (`py`), and
    **Tcl/Tk and IDLE** enabled. See the [Python Windows installation guide](https://docs.python.org/3.12/using/windows.html).
 2. Download the repository: on its GitHub page, click **Code → Download ZIP**.
    Right-click the downloaded ZIP and choose **Extract All**. Open the extracted
-   folder until you can see `gui.py` and `requirements.txt`.
-3. In that folder's File Explorer window, click the **address bar** at the top,
-   type `cmd`, and press Enter. This opens CMD in the correct folder.
-4. Check that Python 3.12 is available:
+   folder until you can see `gui.py`, `requirements.txt` and `PSIB.bat`.
+3. **Double-click `PSIB.bat`.**
 
-   ```cmd
-   py -3.12 --version
-   ```
+The first launch installs the program automatically: it creates the `.venv`
+environment and installs `requirements.txt`. This needs an internet connection
+and can take a few minutes; a console window shows the progress. Later launches
+skip the installation and open the app directly.
 
-   It should print `Python 3.12.x`. If the command is not recognized, check the
-   Python installation before continuing.
-5. Create the virtual environment. This creates a `.venv` folder for the project's
-   Python packages. You only need to create it once:
+Choose your video with **Choose video…**; recordings are not bundled with the
+repository.
 
-   ```cmd
-   py -3.12 -m venv .venv
-   ```
+What `PSIB.bat` does, in order:
 
-6. **Activate the virtual environment** before installing packages or running the
-   project:
+1. Moves to its own folder, so it works from any location, including a shortcut.
+2. If `.venv` does not exist, creates it with `py -3.12` and installs the
+   requirements. If either step fails, it prints the reason and waits for a key.
+   A partly installed `.venv` is removed so the next launch retries cleanly.
+3. Starts `gui.py` with the environment's Python. The console closes by itself
+   when you close the app.
 
-   ```cmd
-   .venv\Scripts\activate.bat
-   ```
+**Optional: desktop shortcut.** Right-click `PSIB.bat` → **Show more options** →
+**Send to** → **Desktop (create shortcut)**. In the shortcut's **Properties** you
+can set **Run: Minimized** and change its icon.
 
-   You should now see **`(.venv)`** at the beginning of the command line. Activate
-   it again whenever you open a new CMD window.
-7. Install the required packages inside the activated environment:
+**If something goes wrong**
 
-   ```cmd
-   python -m pip install -r requirements.txt
-   ```
+| Message or symptom | What to do |
+| --- | --- |
+| "Could not create the environment" | Python 3.12 or the `py` launcher is missing. Reinstall Python with the options in step 1 |
+| "Dependency installation failed" | Check your internet connection and double-click `PSIB.bat` again |
+| The console shows "Press any key to continue" after the app closes | The app exited with an error. Read the message above it |
+| A Tkinter / `_tkinter` error | Modify the Python installation to include **Tcl/Tk and IDLE**; do not install it through pip |
+| You changed `requirements.txt` or the environment is broken | Delete the `.venv` folder and double-click `PSIB.bat` again |
 
-   This may take a few minutes. Wait until the command line returns. If it reports
-   an error, resolve it before continuing.
-8. Start the desktop app:
+**Manual setup (alternative)**
 
-   ```cmd
-   python gui.py
-   ```
-
-   Keep CMD open while using the app. Choose your video with **Choose video…**;
-   recordings are not bundled with the repository.
-
-**Opening the app next time**
-
-Open the folder containing `gui.py`, type `cmd` in File Explorer's address bar,
-then run these two commands in order:
+Use this if you prefer to run the commands yourself, for example during
+development. Use **Command Prompt (CMD)**, run one command at a time and press
+**Enter** after each. Open CMD in the folder containing `gui.py`: click the
+**address bar** in File Explorer, type `cmd` and press Enter.
 
 ```cmd
+py -3.12 --version
+py -3.12 -m venv .venv
 .venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
 python gui.py
 ```
 
-You do not need to recreate `.venv` or reinstall packages each time. To leave the
-virtual environment after closing the app, type `deactivate` or close CMD.
+`py -3.12 --version` should print `Python 3.12.x`. Creating `.venv` and installing
+packages are one-time steps. In a new CMD window, run only
+`.venv\Scripts\activate.bat` and `python gui.py`; you should see **`(.venv)`** at
+the start of the command line. Type `deactivate` to leave the environment.
 
 **Optional: open the notebooks in JupyterLab**
 
@@ -133,17 +130,27 @@ For manual YAML configuration, use forward slashes in Windows paths, for example
 `config.local.yaml`. Create a new Windows environment rather than copying a Linux
 `.venv` folder. See Python's [virtual environment documentation](https://docs.python.org/3.12/library/venv.html).
 
-**Windows limitations:** end-to-end execution and cancellation/kernel cleanup have
-only been validated on Linux. The **Open results folder** button currently uses
-Linux helpers (`xdg-open`/`gio`); on Windows, open the displayed run path in File
-Explorer. HTML reports can be opened directly in a browser. If Tkinter is missing,
-modify the Python installation to include Tcl/Tk; do not install it through pip.
+**Windows notes**
+
+- **Open results folder** opens the run's directory in File Explorer. HTML reports
+  open in your browser.
+- **Cancel run** ends the notebook runner and its kernels with `taskkill`. This has
+  not been systematically validated on Windows (Linux is the tested platform). If a
+  `python.exe` process stays alive after cancelling, end it from Task Manager.
+- Closing the window is blocked while a run or frame preparation is active. Cancel
+  the run first and wait for it to finish.
 
 ## Run an analysis
 
 New to the app? Follow the [step-by-step GUI walkthrough](documentation.md#3-desktop-workflow-a-guided-walkthrough).
 The documentation also maps [each button to its Python functions](documentation.md#51-functions-behind-the-buttons).
 See the [frontend guide](documentation.md#55-frontend-structure-and-layout) for widgets, layout, events and image rendering.
+
+The **Checklist** panel on the left shows what is done (✔), what to do next (▶)
+and what is pending (○). Steps that do not apply, such as the ruler when
+Calibration is off, are marked with –. A short hint under the list explains the
+current step, **Go to next step ▶** opens its tool, and clicking a step in the list
+does the same. The status line above the progress bar always says what is missing.
 
 1. Choose a video and apply the primary/secondary timestamps.
 2. Enable **Select eye ROI** to draw a crop; disable it for full-frame measurements.
@@ -153,7 +160,8 @@ See the [frontend guide](documentation.md#55-frontend-structure-and-layout) for 
    each comparison frame. Turn it off to estimate both pupils automatically. Use
    **Primary estimate** / **Secondary estimate** to review the blue dashed circles.
 5. Confirm any manual selections, then click **Run all notebooks (0–4)**.
-6. Inspect the plots and executed notebook reports in **Results & log**.
+6. Inspect the plots and executed notebook reports in **Results & log**. The
+   execution log is hidden by default; use **Show log** to display it.
 
 Use Zoom/Fit and scrollbars. Space resets a draft selection; Backspace/right click
 undoes a point; Enter confirms. **Show saved presets** displays previous selections
@@ -161,7 +169,8 @@ as blue dashed overlays. Presets are remembered per video in the ignored
 `.psib_gui/` folder. Changing video/timestamps/ROI requires new dependent selections.
 
 The app runs notebooks without additional selection windows. Progress and Cancel
-are available. Each run gets its own `results/gui/<video>_<run id>/` directory,
+are available; the status line names the current module and completed cells. Each
+run gets its own `results/gui/<video>_<run id>/` directory,
 including configuration, CSVs, figures, notebooks, HTML reports and execution status.
 Failed/cancelled runs retain labelled partial outputs. Source notebooks and prior
 results are preserved.
@@ -175,7 +184,8 @@ points and automatic estimates are stored separately in the per-video profile.
 
 ## Optional GPU processing
 
-1. Start the app from your activated virtual environment with `python gui.py`.
+1. Start the app (`PSIB.bat` on Windows, or `python gui.py` from the activated
+   virtual environment).
 2. Tick **Request GPU (OpenCL)**, below the pupil-selection toggle.
 3. Read the message beside it. **OpenCL GPU available** means supported steps
    can request the GPU. **GPU unavailable … using CPU** means the run will still
@@ -257,7 +267,8 @@ camera distance.
 
 `src/psib/` contains reusable processing and GUI code; `notebooks/` contains the
 experiments; `tests/` contains focused checks; `results/` contains saved outputs and
-validation evidence. Some committed results include eye images and original local
+validation evidence. `gui.py` starts the desktop app and `PSIB.bat` is its Windows
+launcher and installer. Some committed results include eye images and original local
 execution paths. Videos, environments, presets, local settings and caches are ignored.
 
 The source code is small compared with generated reports. See the documentation's
