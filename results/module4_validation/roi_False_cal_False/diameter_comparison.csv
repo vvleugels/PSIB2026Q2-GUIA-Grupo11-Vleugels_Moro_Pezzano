@@ -1,3 +1,0 @@
-variant,n_frames,n_paired,n_accepted_baseline,n_accepted_jpeg,n_rejected_baseline,n_rejected_jpeg,status,bias_px,MAE_px,RMSE_px
-jpeg_q50,238,210,221,211,17,27,compared_unvalidated,0.8280699766320181,1.2369496726173788,4.119747923544258
-jpeg_q10,238,80,221,86,17,152,compared_unvalidated,1.5530133645071331,6.106913108397885,8.820439145654415

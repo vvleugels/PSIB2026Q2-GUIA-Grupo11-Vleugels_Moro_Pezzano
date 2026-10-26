@@ -266,10 +266,17 @@ camera distance.
 ## Repository contents
 
 `src/psib/` contains reusable processing and GUI code; `notebooks/` contains the
-experiments; `tests/` contains focused checks; `results/` contains saved outputs and
-validation evidence. `gui.py` starts the desktop app and `PSIB.bat` is its Windows
-launcher and installer. Some committed results include eye images and original local
-execution paths. Videos, environments, presets, local settings and caches are ignored.
+experiments; `tests/` contains focused checks. `gui.py` starts the desktop app and
+`PSIB.bat` is its Windows launcher and installer. The application creates `results/`
+locally for generated figures, measurements, executed notebooks and reports. This
+entire directory is ignored and is not part of the repository. Source notebooks
+are committed without saved cell outputs or execution counts. Clear those outputs
+before committing notebooks that you ran manually; GUI runs already write executed
+copies under the ignored results directory.
+
+Videos, environments, presets, local settings and caches are also ignored. Older
+Git commits may still contain previously published results; removing them from the
+current tree does not rewrite repository history.
 
 The source code is small compared with generated reports. See the documentation's
 maintenance section for the debloat audit and approved cleanup decisions.

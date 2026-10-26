@@ -1,4 +1,0 @@
-variant,status,baseline_diameter_px_delta,response_amplitude_px_delta,response_amplitude_area_px2_delta,latency_s_delta,peak_constriction_speed_px_s_delta,peak_redilation_speed_px_s_delta,baseline_diameter_mm_delta,response_amplitude_mm_delta,peak_constriction_speed_mm_s_delta,peak_redilation_speed_mm_s_delta,response_amplitude_area_mm2_delta
-baseline,estimated_unvalidated,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
-jpeg_q50,estimated_unvalidated,5.44282786965303,6.462461134654461,519.1037040019944,0.0,9.142535843797248,32.56553287046157,0.8372590557431128,0.9941071510906099,1.406377550602791,5.009489176190327,12.283570847183967
-jpeg_q10,insufficient_data,,,,,,,,,,,

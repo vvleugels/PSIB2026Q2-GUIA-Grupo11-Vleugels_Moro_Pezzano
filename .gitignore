@@ -22,7 +22,7 @@ config.local.yaml
 .env.*
 !.env.example
 
-# Input recordings and archives (example results are intentionally tracked)
+# Input recordings and archives
 *.mp4
 *.mov
 *.avi
@@ -43,12 +43,5 @@ Thumbs.db
 # Desktop GUI's local per-video selections
 .psib_gui/
 
-# Reproducible heavyweight GUI-validation artifacts (keep summaries/configs/CSVs)
-results/
-results/gui_validation/**/figures/
-results/gui_validation/**/*.npy
-results/gui_validation/**/validation/*.ipynb
-results/gui_validation/**/validation/*.html
-
-# Bulk Module 4 temporal JPEGs; example publication is an explicit later step.
-results/**/module4/**/temporal_jpeg/
+# Generated analysis outputs, executed reports, validation runs and local backups
+/results/

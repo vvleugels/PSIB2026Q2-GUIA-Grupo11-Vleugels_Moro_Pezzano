@@ -687,6 +687,9 @@ exploratory until segmentation and timing are independently validated.
 
 GUI runs use `results/gui/<video>_<timestamp>_<unique id>/`. Standalone notebooks
 write to the configuration's output directory and may overwrite earlier files.
+The entire repository-root `results/` directory is ignored by Git; outputs are
+created locally when you execute the pipeline, not shipped in a fresh checkout.
+The application creates required output directories automatically.
 
 | Output | Meaning |
 | --- | --- |
@@ -711,8 +714,10 @@ size columns. Physical columns are emitted only with calibration. Centroids are
 available in crop-local, full-frame and eye-motion-compensated reference coordinates.
 
 Run configurations can contain local paths, and reports can contain eye images.
-Review what is included before publishing results. Existing checked-in results
-are evidence from particular runs, not proof that the current setup just ran.
+Keep generated results local unless a specific publication set is approved. Older
+commits still contain historical outputs; those files do not prove that the
+current setup just ran. Source notebooks are published without cell outputs or
+execution counts, while GUI execution preserves its copies inside `results/`.
 
 ## 8. Testing and troubleshooting
 
@@ -729,7 +734,8 @@ replace manual contours or physiological ground truth.
 
 Real-video validation has exercised A_2 with all ROI/calibration toggle combinations.
 A real-display Tk smoke check and actual-kernel cancellation were also performed.
-Historical validation notes live under the results folders.
+Historical validation notes may exist in local results folders or older Git
+commits; fresh checkouts do not include generated validation evidence.
 
 | Symptom | Check |
 | --- | --- |
@@ -778,6 +784,38 @@ is kept below as decisions are applied.
   requirements retain all desktop, processing, kernel and HTML-export packages.
 - Git history and the existing virtual environment were not altered. Previous
   commits still contain old artifacts, so clone-history size has not been reduced.
+
+### Cleanup applied on 2026-10-25
+
+- Untracked all 327 files under `results/`, including generated figures, masks,
+  tables, executed notebook/HTML reports and per-run validation records. Existing
+  local results were preserved; `/results/` is ignored as a whole.
+- With user approval, cleared 72 saved cell outputs and execution counts from
+  source notebooks, preserving every code/markdown cell and required notebook
+  metadata. Source notebooks decreased from 6.54 MiB to 0.07 MiB.
+- Preserved the original notebooks in an ignored local backup under
+  `results/local_archive/source_notebooks_before_cleanup_20261025_<id>/`.
+- Consolidated redundant result-specific ignore patterns and removed obsolete
+  `.gitattributes` rules that applied only to generated reports.
+- Audited remaining tracked files for environments, caches, video/archive files,
+  local configuration/profiles, obvious credential patterns and machine-specific
+  paths. No additional inappropriate tracked files were found after clearing
+  notebook outputs. This was a targeted check, not a guarantee against all secrets.
+- Generated results remain in older commits. No Git history was rewritten, so
+  historical clone size is not reduced by this cleanup.
+
+Before committing a manually executed source notebook, use JupyterLab's
+**Edit → Clear Outputs of All Cells**, save it, and review `git diff`. To also
+clear saved outputs and execution counts from all source notebooks, from the
+repository root with the virtual environment active run:
+
+```bash
+python -m jupyter nbconvert --clear-output --inplace "notebooks/*.ipynb"
+```
+
+Review the resulting diff before committing. Source code, markdown and intentional
+notebook configuration (such as Module 4's execution timeout) must remain intact.
+GUI runs need no source cleanup because their executed copies are stored locally.
 
 ## 10. Module 4: compression and downstream measurements
 
