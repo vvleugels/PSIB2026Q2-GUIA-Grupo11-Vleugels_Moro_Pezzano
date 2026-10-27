@@ -48,32 +48,27 @@ Folder opening needs the system's `xdg-open` or `gio`.
    **Tcl/Tk and IDLE** enabled. See the [Python Windows installation guide](https://docs.python.org/3.12/using/windows.html).
 2. Download the repository: on its GitHub page, click **Code → Download ZIP**.
    Right-click the downloaded ZIP and choose **Extract All**. Open the extracted
-   folder until you can see `gui.py`, `requirements.txt`, `PSIB.vbs` and `PSIB.bat`.
-3. **Double-click `PSIB.vbs`** to open the app without a command window.
+   folder until you can see `gui.py`, `requirements.txt` and `PSIB.bat`.
+3. **Double-click `PSIB.bat`.**
 
-The first launch shows an installation notice, creates the `.venv` environment
-and installs `requirements.txt`. This needs an internet connection and can take
-a few minutes; console windows show the setup progress. Later launches reuse the
-environment and open the app with the console hidden.
-
-`PSIB.bat` remains available when you want to see console output, or if Windows
-cannot run the VBScript launcher.
+The first launch creates the `.venv` environment and installs `requirements.txt`.
+This needs an internet connection and can take a few minutes; the command window
+shows setup progress and application output. Later launches reuse the environment
+and open the app directly. Keep the command window open while using the app.
 
 Choose your video with **Choose video…**; recordings are not bundled with the
 repository.
 
-What `PSIB.vbs` does, in order:
+What `PSIB.bat` does, in order:
 
 1. Moves to its own folder, so it works from a shortcut too.
-2. If `.venv/Scripts/python.exe` is missing, creates the environment with
+2. If `.venv\Scripts\python.exe` is missing, creates the environment with
    `py -3.12` and installs the requirements. Dependency installation failure
    removes the incomplete environment so the next launch can retry.
-3. Runs `gui.py` with the environment's Python and hides the command window.
-   Output is saved to `psib_launch.log` in the project folder, replacing the
-   previous launch's log. If the app exits with an error, a dialog shows the end
-   of the log and its location.
+3. Runs `gui.py` with the environment's Python. Setup failures and application
+   errors leave a message in the console and wait for a key before closing.
 
-**Optional: desktop shortcut.** Right-click `PSIB.vbs` → **Show more options** →
+**Optional: desktop shortcut.** Right-click `PSIB.bat` → **Show more options** →
 **Send to** → **Desktop (create shortcut)**. You can change the shortcut's icon in
 its **Properties**.
 
@@ -82,12 +77,10 @@ its **Properties**.
 | Message or symptom | What to do |
 | --- | --- |
 | Environment creation fails (`No se pudo crear el entorno`) | Python 3.12 or the `py` launcher is missing. Reinstall Python with the options in step 1 |
-| Dependency installation fails (`Fallo la instalacion de las dependencias`) | Check your internet connection and launch again; use `PSIB.bat` to see detailed console output |
-| `PSIB.vbs` shows an app error dialog | Read the message and `psib_launch.log` in the project folder |
-| Windows cannot run `PSIB.vbs` | Use `PSIB.bat` or the manual setup below |
+| Dependency installation fails (`Fallo la instalacion de las dependencias`) | Read the console output, check your internet connection and launch `PSIB.bat` again |
 | The console shows "Press any key to continue" after the app closes | The app exited with an error. Read the message above it |
 | A Tkinter / `_tkinter` error | Modify the Python installation to include **Tcl/Tk and IDLE**; do not install it through pip |
-| You changed `requirements.txt` or the environment is broken | Delete the `.venv` folder and launch `PSIB.vbs` or `PSIB.bat` again |
+| You changed `requirements.txt` or the environment is broken | Delete the `.venv` folder and launch `PSIB.bat` again |
 
 **Manual setup (alternative)**
 
@@ -226,8 +219,8 @@ fallback behavior and the distinction between GUI notes and HTML reports.
 
 ## Optional GPU processing
 
-1. Start the app (`PSIB.vbs` or `PSIB.bat` on Windows, or `python gui.py` from
-   the activated virtual environment).
+1. Start the app (`PSIB.bat` on Windows, or `python gui.py` from the activated
+   virtual environment).
 2. Expand **Advanced options** and tick **Request GPU (OpenCL)**, below the
    pupil-selection toggle.
 3. Read the message beside it. **OpenCL GPU available** means supported steps
@@ -310,20 +303,19 @@ camera distance.
 
 `src/psib/` contains reusable processing and GUI code; `notebooks/` contains the
 experiments; `tests/` contains focused checks. `gui.py` starts the desktop app.
-`PSIB.vbs` is the Windows launcher with a hidden console; `PSIB.bat` provides a
-console alternative. Both install the environment on first launch.
+`PSIB.bat` installs the environment on first launch and starts the app on Windows
+with console output visible.
 `src/psib/theme.py` defines the GUI styles and checklist; `assets/logo.png` supplies
 the app branding, and `figure_notes.yaml` holds editable plot explanations.
 
 The application creates `results/` locally for generated figures, measurements,
-executed notebooks and reports. This entire directory is ignored and is not part of the repository. Source notebooks
-are committed without saved cell outputs or execution counts. Clear those outputs
-before committing notebooks that you ran manually; GUI runs already write executed
+executed notebooks and reports. This entire directory is ignored and is not part
+of the repository. Source notebooks are committed without saved cell outputs or
+execution counts. Clear those outputs before committing notebooks that you ran manually; GUI runs already write executed
 copies under the ignored results directory.
 
-Videos, environments, presets, local settings, caches and `psib_launch.log` are
-also ignored. Older Git commits may still contain previously published results;
-removing them from the current tree does not rewrite repository history.
+Videos, environments, presets, local settings and caches are also ignored. Older
+Git commits may still contain previously published results; removing them from the current tree does not rewrite repository history.
 
 The source code is small compared with generated reports. See the documentation's
 maintenance section for the debloat audit and approved cleanup decisions.
