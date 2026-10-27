@@ -6,6 +6,25 @@ For a first GUI run, follow [the guided walkthrough](#3-desktop-workflow-a-guide
 For implementation details, see [the function map](#51-functions-behind-the-buttons)
 and [how the frontend is built](#55-frontend-structure-and-layout).
 
+## Contents
+
+| Read this for… | Section |
+| --- | --- |
+| Scope and limitations | [1. Purpose and current state](#1-purpose-and-current-state) |
+| Linux/Windows setup and notebook execution | [2. Installation and entry points](#2-installation-and-entry-points) |
+| Using the app, reviewing results and editing explanations | [3. Desktop workflow](#3-desktop-workflow-a-guided-walkthrough) |
+| Settings, precedence and coordinate inputs | [4. Configuration](#4-configuration-and-precedence) |
+| Callbacks, state, layout and rendering | [5. Architecture](#5-architecture-and-data-flow) |
+| Tracking, segmentation and response estimates | [6. Measurement](#6-tracking-segmentation-and-measurement) |
+| Run folders, tables and provenance | [7. Outputs](#7-outputs-and-provenance) |
+| Checks, latest run evidence and common failures | [8. Testing and troubleshooting](#8-testing-and-troubleshooting) |
+| Generated files and repository cleanup | [9. Maintenance](#9-maintenance-and-debloat-policy) |
+| Compression algorithms and downstream comparisons | [10. Compression](#10-module-4-compression-and-downstream-measurements) |
+| GPU scope and fallback diagnostics | [11. OpenCL](#11-optional-opencl-gpu-requests) |
+
+Sections 2–4 cover operation; Sections 5–6 explain implementation and measurement.
+Sections 10–11 provide focused references for compression and acceleration.
+
 ## 1. Purpose and current state
 
 The project measures an eye's pupil response to a light change. It follows the
@@ -22,10 +41,14 @@ reusable algorithms live in Python modules.
 
 The desktop app runs Modules 0–4. It simplifies configuration but does not make the
 pipeline fully automatic for unseen videos: automatic initialization can need
-manual correction, and enabled ROI/calibration options need image selections. Written notebook discussion answers and broader validation remain work
-for the practical assignment.
+manual correction, and enabled ROI/calibration options need image selections.
+Written notebook discussion answers and broader validation remain work for the
+practical assignment. The figure explanations describe how to read the outputs;
+they do not complete those discussion answers or validate pupil measurements.
 
 ## 2. Installation and entry points
+
+### 2.1 Linux desktop setup
 
 Development uses Linux and Python 3.12. The annotations and GUI code require a
 modern Python version; use the tested 3.12 environment rather than assuming the
@@ -44,10 +67,45 @@ display is needed for the app and standalone OpenCV selection windows.
 
 | Entry point | Purpose |
 | --- | --- |
-| `gui.py` | Start the desktop application |
+| `gui.py` | Start the desktop application with the active Python environment |
+| `PSIB.vbs` | Windows first-launch installer and launcher with a hidden console |
+| `PSIB.bat` | Windows installer/launcher with visible console output |
 | `validate_notebooks.py` | Execute notebooks and preserve executed copies |
 | `notebooks/00_…04_*.ipynb` | Run experiments manually in Jupyter |
 | `tests/` | Focused automated checks; no real-video anatomical ground truth |
+
+### 2.2 Windows launchers
+
+Install 64-bit Python 3.12 with pip, the `py` launcher and **Tcl/Tk and IDLE**.
+Extract or clone the project, then double-click **PSIB.vbs** in the folder
+containing `gui.py` and `requirements.txt`. On first launch it displays a setup
+notice, creates `.venv` using `py -3.12` and installs the base requirements in
+visible console windows. Later launches reuse `.venv/Scripts/python.exe` and hide
+the console while the app runs.
+
+The launcher redirects application output to `psib_launch.log`, replacing that
+file on each launch. If the app exits with an error, a dialog shows the last part
+of the log and its path. Dependency installation failure removes the incomplete
+environment so the next launch can retry. Use **PSIB.bat** for visible output or
+when VBScript cannot run. Both launchers change to their own directory, so a
+shortcut can point to the launcher without manually setting its working folder.
+If requirements change, update the environment with pip or remove `.venv` and
+launch again; an existing environment is not automatically upgraded.
+
+Manual setup in Windows Command Prompt, from the project folder:
+
+```cmd
+py -3.12 -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+python gui.py
+```
+
+See the [README Windows guide](README.md#windows) for shortcut and installation
+troubleshooting. Windows launcher and cancellation behavior still need platform
+validation; the latest full notebook run was on Linux.
+
+### 2.3 Notebooks and terminal execution
 
 JupyterLab is optional and is not required by the desktop app or terminal runner.
 To install the browser-based editor and launch it from the repository root:
@@ -57,9 +115,7 @@ python -m pip install -r requirements-notebooks.txt
 python -m jupyterlab
 ```
 
-The optional file includes the base requirements. Existing environments retain
-already-installed packages; this change makes new desktop installations lighter
-without uninstalling anything from the current environment. Terminal examples:
+The optional file includes the base requirements. Terminal examples:
 
 ```bash
 python validate_notebooks.py
@@ -87,8 +143,9 @@ hand.** It does not replace the image-processing algorithms inside the notebooks
 ### 3.1 What you need before starting
 
 - The project installed following the [README setup instructions](README.md#install-and-open-the-desktop-app).
-- An activated `.venv` environment and a desktop session. Run `python gui.py` from
-  the folder containing `gui.py`. Keep that terminal open while using the app.
+- A desktop session. On Linux, activate `.venv` and run `python gui.py` from
+  the project folder; keep the terminal open. On Windows, launch `PSIB.vbs` or
+  `PSIB.bat`, which use the project environment automatically.
 - Your video file; videos are not bundled with the repository.
 - A visible ruler of known spacing **only if** you want calibrated measurements.
   Without a ruler, turn Calibration off and use pixel measurements.
@@ -105,12 +162,19 @@ from your clicks or from the optional automatic estimator.
 | **Primary (s)** / **Secondary (s)** | Choose the two comparison frames | Two different, ordered times within the recording |
 | **Apply / load frames** | Loads the chosen frames and prepares their tracked crops/automatic estimates | Click after editing timestamps |
 | **Select eye ROI** | On: use a selected moving eye crop. Off: measure full frames | A rectangle only when enabled |
-| **Calibration** / **Ruler distance (cm)** | On: convert pixels to physical units. Off: pixel-only output | Two ruler marks separated by the entered distance when enabled |
-| **Select pupils manually** | On: you click the pupil seeds. Off: the app estimates them | Center + boundary on each comparison frame, or successful automatic estimates |
-| **Request GPU (OpenCL)** | Requests supported Module 1 operations on an OpenCL GPU | Nothing to select in the image; read the availability message |
+| **Calibration** / **Ruler (cm)** | On: convert pixels to physical units. Off: pixel-only output | Two ruler marks separated by the entered distance when enabled |
+| **Advanced options** → **Select pupils manually** | On: you click the pupil seeds. Off: the app estimates them | Center + boundary on each comparison frame, or successful automatic estimates |
+| **Advanced options** → **Request GPU (OpenCL)** | Requests supported Module 1 operations on an OpenCL GPU | Nothing to select in the image; read the availability message |
+| **Steps** | Checklist of required actions; teal checks mark done, amber marks next, – marks skipped | Click an enabled step to open its control |
+| **Go to next step ▶** | Opens the first pending setup control | Starts no analysis; use Run when ready |
+| **Hide panel** / **Show panel** | Hides/restores the settings sidebar | Optional, to enlarge the image area |
 | **Setup** tab | Shows the image and selection tools | Make or inspect selections here |
 | **Results & log** tab | Shows execution messages, figures and notebook reports | Available results from the current session's last run |
 | Bottom status / **Run all notebooks (0–4)** | Explains missing setup and starts the complete pipeline when ready | Finish the required setup first |
+
+The settings sidebar scrolls independently; its width can be adjusted by dragging
+the divider. Hover over controls for short explanations. The window attempts to
+start maximized, while Run/Cancel and status stay in the bottom bar.
 
 The Primary and Secondary times are **comparison timestamps**, not the beginning
 and end of a video clip. Modules 3 and 4 still process the whole recording.
@@ -139,16 +203,16 @@ and end of a video clip. Modules 3 and 4 still process the whole recording.
    then **Confirm selection**. The selection is on the full primary frame, even
    when the eye ROI is cropped. If there is no ruler, turn Calibration off and
    skip this step. An old scale is not used while calibration is disabled.
-5. **Choose one pupil-initialization method.** These circles initialize the
-   algorithms; they are not the final pupil measurements.
+5. **Expand Advanced options and choose one pupil-initialization method.** These
+   circles initialize the algorithms; they are not the final pupil measurements.
 
    | Method | What to do |
    | --- | --- |
    | Manual, checkbox on | Click **3. Primary pupil**. Click the pupil center once, then one point on its boundary. Inspect the circle and click **Confirm selection**. Repeat with **4. Secondary pupil** on the second image. You do not need to trace the whole outline. |
    | Automatic, checkbox off | Wait for preparation. Click **3. Primary estimate** and **4. Secondary estimate** to inspect the blue dashed circles. These are read-only previews, so no pupil clicks or confirmation are needed. If an estimate is wrong or unavailable, use a tighter eye ROI or turn manual selection back on. |
 
-6. **Choose CPU or optional GPU processing.** Leave **Request GPU (OpenCL)** off
-   for the normal CPU workflow. If you enable it, wait for the message beside the
+6. **Choose CPU or optional GPU processing in Advanced options.** Leave
+   **Request GPU (OpenCL)** off for the normal CPU workflow. If you enable it, wait for the message beside the
    checkbox. An unavailable GPU falls back to CPU; it does not prevent running.
    This option currently affects spatial filters and Fourier transforms in
    Module 1, not segmentation/tracking or the whole pipeline. See
@@ -181,7 +245,8 @@ no editable draft, so Confirm is disabled there.
 
 ### 3.5 Why Run may be disabled
 
-Read **Setup needed:** at the bottom. Fix the reported item, then wait for any
+Read the bottom status and the hint under **Steps**. The status names the next
+action or lists **Setup needed:** items. Fix the reported item, then wait for any
 background preparation to finish.
 
 | Situation | What to do |
@@ -199,24 +264,38 @@ establish that a pupil boundary or physiological estimate is correct.
 
 ### 3.6 Results, cancellation and saved settings
 
-After a run ends, **Previous figure** / **Next figure** browse its saved PNGs.
-Choose a notebook in the report dropdown and click **Open notebook report** to
-read its HTML version in your browser. **Open results folder** opens the latest
-run's directory; before any run in that app session, it opens the general results
-folder. The viewer does not automatically load old runs when you restart the app;
-open those directories/reports directly. The folder button currently uses Linux
-helpers; Windows users can open the displayed path in File Explorer instead.
+After a run ends, **◀ Prev** / **Next ▶** browse saved PNGs in filename order,
+wrapping at the ends. The viewer shows a figure counter and an explanation above
+the current plot. Use **+**, **−**, **Fit**, scrollbars or drag-to-pan to inspect
+large figures. Mouse wheel scrolls; **Shift + wheel** scrolls horizontally and
+**Ctrl + wheel** zooms over either image canvas. Fit is restored when changing
+figures and adapts to window size without enlarging beyond the PNG's native size.
+
+Choose an HTML notebook in the report dropdown, then click **Open report**.
+**Results folder** opens the latest run's directory in File Explorer on Windows
+or through `xdg-open`/`gio` on Linux. Before a run, it opens the general results
+folder if present, otherwise the project folder. The viewer does not reload old
+runs after an app restart; open those saved directories/reports directly.
+
+The execution log is initially hidden. **Show log ▲** expands it and
+**Hide log ▼** collapses it. The app shows it automatically after a failed or
+cancelled run. This notebook execution log is separate from the Windows
+launcher's `psib_launch.log`.
 
 The main time series is `module3/<video>/pupil_curve.csv`; the response summary is
 `module3/<video>/physiological_parameters.csv`. Inspect `figures/` for segmentation
 and tracking overlays before interpreting the numbers. See [the output table](#7-outputs-and-provenance)
-for the other files.
+for the other files. Compression curves and comparison tables are documented in
+[Section 10](#10-module-4-compression-and-downstream-measurements).
 
 **Cancel run** asks the notebook worker to stop. Wait until it reports cancellation
 and finishes cleanup before closing the app. It does not cancel video preparation
 or GPU probing. Failed/cancelled runs keep partial outputs and the failed notebook/
 cell information; subsequent notebooks are not executed. Cancellation/kernel
-cleanup has been validated on Linux; Windows remains unverified.
+cleanup has been validated on Linux. Windows cancellation uses
+`taskkill /PID <runner pid> /T /F` to stop the runner and its child kernels; it
+remains unverified on Windows. Forced termination may leave fewer final status
+records than cooperative Linux cancellation.
 
 Profiles are saved automatically in ignored `.psib_gui/` files. They remember the
 video's toggles, timestamps, ROI, ruler points and separate manual/automatic pupil
@@ -239,6 +318,41 @@ region follows the first estimate to help locate the second, but the measurement
 frames remain full-size. The effective configuration records
 `module2.initialization_source: manual` or `automatic` and freezes the resulting
 coordinates with `initialization_mode: manual`, so notebooks do not ask for points.
+
+### 3.7 Editing figure explanations
+
+[`figure_notes.yaml`](figure_notes.yaml) is the shared, editable source of the
+text above each result figure. It contains 55 explicit entries covering the
+current Modules 0–4 output set with calibration enabled. Calibration-off runs
+omit the calibration figure. Notes describe what panels, axes, colors and methods
+mean, using language that also applies to other usable recordings.
+
+Keys match a PNG filename without `.png`. Frame suffix `0` means the primary
+comparison frame and `1` means the secondary. Add multiline plain text with `|`:
+
+```yaml
+m0_brightness_vs_time: |
+  Mean image brightness over time, with estimated light-change markers.
+"m4_*": |
+  Compression comparisons; read the panel titles for the input and quality.
+```
+
+A trailing `*` matches a filename prefix. Exact keys take precedence; among
+matching patterns, the longest prefix wins. Save the file and click **Next ▶** or
+**◀ Prev** to see the revised text. The app reads the YAML whenever it loads a
+figure, so no restart or notebook rerun is needed. Text is displayed as plain
+text, not rendered Markdown.
+
+When an entry is missing or empty, the viewer shows the filename key and asks for
+an explanation. If the YAML is absent, invalid or not a mapping, it falls back to
+these prompts. To add a new plot, save it through `save_fig()`, add its note and
+review the actual figure against the explanation. Keep recording-specific
+measurements and conclusions in the run report rather than shared notes.
+
+Explanations are loaded from the project file at viewing time, rather than copied
+into each run. Existing run configurations therefore do not snapshot their note
+wording. Standalone HTML reports show notebook content and saved figures; the GUI
+notes are not automatically inserted into those exports.
 
 ## 4. Configuration and precedence
 
@@ -269,6 +383,7 @@ not edit the published or local configuration.
 | Module 1 | Noise seed, sampling/quantization, intensity/filter/edge/frequency settings |
 | Module 2 | Method, manual/interactive initialization, per-frame centers/radii, morphology, optional reference-mask paths |
 | Module 3 | Pupil method, local threshold settings, quality limits, eye tracking, interpolation/smoothing, stimulus and response settings |
+| Figure descriptions | Project-root `figure_notes.yaml`; separate from algorithm/run configuration |
 | Module 4 | `jpeg_qualities: [90, 50, 10, 5]`, `temporal_qualities: [50, 10]`, `save_all_frames: false`; absent section uses these defaults |
 
 GUI runs freeze numeric selections (including automatic estimates) as manual
@@ -299,6 +414,7 @@ main event loop.
 | Components under `src/psib/` | Responsibility |
 | --- | --- |
 | `desktop`, `gui_model` | Widgets, selection geometry, setup validation and per-video profiles |
+| `theme` | Palette, font selection, ttk styles, cards, numbered checklist and branding image loading |
 | `notebook_runner` | Kernel lifecycle, progress events, failure/cancellation and report export |
 | `config`, `video_io` | Configuration resolution, upright decoding and real presentation timestamps |
 | `roi`, `calibration`, `gui` | Crops, comparison-frame tracking, selection windows, ruler conversion and font fallback |
@@ -349,6 +465,8 @@ loads the base YAML and connects each control to a callback.
 | Apply times / prepare images | `DesktopApp.apply()`, `Setup.change_geometry()`, `prepare_views()`, `video_io.read_frames_at_times()`, `roi.tracked_frame_rois()` | Setup + base settings → two decoded frames and tracked comparison crops; exceptions leave setup blocked |
 | Estimate pupils automatically | `estimate_comparison_pupils()`, `estimate_pupil()` | Comparison frames/crops → two crop-local center/radius dictionaries; full-frame searches map back to full-frame coordinates |
 | Change ROI/calibration/pupil mode | `DesktopApp.toggle()` | Checkbox values → updated setup and another preparation pass |
+| Show advanced options / sidebar | `toggle_advanced()`, `toggle_sidebar()` | Expand hidden controls or adjust available image space without changing settings |
+| Follow setup checklist | `steps()`, `update_checklist()`, `next_step()`, `theme.Stepper` | Current setup → numbered status rows; Next opens a pending setup control |
 | Request GPU | `DesktopApp.toggle_gpu()`, `acceleration.probe_gpu()` | Requested flag → saved preference and background availability message; does not alter selections |
 | Begin a selection or preview | `DesktopApp.select(mode)`, `show_image()`, `fit()` | `roi`, `ruler`, `pupil0` or `pupil1` → correct image and editing mode; automatic pupil previews keep editing off |
 | Convert mouse input | `mapped()`, `CanvasGeometry.point()`, `CanvasGeometry.rectangle()` | Scrolled/zoomed canvas position → original-image coordinates or an ROI rectangle |
@@ -356,7 +474,9 @@ loads the base YAML and connects each control to a callback.
 | Save a selection | `confirm()`, `ProfileStore.save()` | Valid draft → stored ROI/ruler/pupil values; ROI changes trigger preparation again |
 | Decide whether Run is enabled | `refresh()`, `Setup.missing()` | Current setup, loaded crops, applied times and busy state → enabled/disabled controls and missing-input message |
 | Build and start a run | `run()`, `effective_config()`, `execute_notebooks()` | Valid setup → isolated YAML, runner subprocess, notebook kernels and outputs |
-| Receive progress / show results | `task()`, `poll()`, `append_log()`, `figure()` | Queued worker events → Tk updates, progress, completion/error status and result images |
+| Receive progress / show results | `task()`, `poll()`, `on_run_event()`, `on_run_done()`, `append_log()` | Queued worker events → Tk updates, progress, status and saved result list |
+| Browse/zoom figures and load notes | `figure()`, `figure_note()`, `draw_result()`, `fit_result()`, `zoom_result()` | PNG + project YAML → canvas image, filename title and explanation |
+| Show/hide execution log | `toggle_log()` | Expand/collapse the read-only notebook log |
 | Stop / exit | `cancel()`, runner `run_client()`, `close()` | Cancel request → kernel cleanup on the tested Linux path; closing is blocked while busy |
 | Open output files | `open_results()`, `system_open.open_folder()`, `open_report()` | Latest run path/report choice → system folder opener or browser |
 
@@ -377,6 +497,9 @@ of stale selections or incorrect coordinate conversions.
 | `image`, `photo`, `scale`, `geometry` | Original image, Tk display image and coordinate mapping; zoom changes these display values, not stored measurements |
 | `busy`, `process`, `events` | Preparation/run state, active subprocess and thread-safe event queue |
 | `last_run`, `figures`, `figure_index` | Latest run in this app session and its result-browser position |
+| `result_pil`, `result_photo`, `result_scale`, `result_fit`, `result_size` | Source PNG, displayed Tk image, zoom/fit mode and cached display dimensions |
+| `note_title`, `note_body`, `figure_counter` | Current figure stem, explanation and position text |
+| `sidebar_visible`, `sidebar_width` | Current layout state; independent of analysis geometry |
 
 An ROI is `(x, y, width, height)` in original full-frame pixels. Ruler points also
 use full-frame pixels. Pupil centers use the **displayed comparison crop's local
@@ -444,45 +567,57 @@ change a run already in progress because its effective configuration is frozen.
 
 ### 5.5 Frontend structure and layout
 
-Here, **frontend** means the desktop window, controls and image display you
-interact with. It is built in [desktop.py](src/psib/desktop.py) using Python's
-**Tkinter** and **ttk** widgets. It is not a website: there is no HTML/CSS/JavaScript
-interface or web server to start. HTML files are exported notebook reports opened
-later in your browser.
+The frontend is a Tkinter/ttk desktop window implemented in
+[desktop.py](src/psib/desktop.py), with shared visual definitions in
+[theme.py](src/psib/theme.py). Pillow converts NumPy arrays and saved PNGs into Tk
+images. `ttk.Notebook` supplies tabs; execution of Jupyter notebooks belongs to
+the separate runner process.
 
-Tkinter creates the window, receives input and runs the event loop. `ttk` supplies
-the themed buttons, entries, tabs and progress bar. **Pillow** converts image
-arrays into images Tk can display. `ttk.Notebook` is the name of the **tab widget**;
-it does not execute Jupyter notebooks.
-
-`DesktopApp.__init__()` builds this simplified widget tree, from top to bottom:
+`DesktopApp.__init__()` delegates construction to `build_appbar()`,
+`build_sidebar()`, `build_setup_tab()`, `build_results_tab()` and `build_bottom()`:
 
 ```text
 Tk window: “PSIB — Pupil analysis”
-├── Header: title, video path, Choose video and video details
-│   ├── Timestamp row: Primary, Secondary, Apply, Calibration, ROI, ruler distance
-│   ├── Pupil row: manual-selection checkbox and explanation
-│   └── GPU row: OpenCL checkbox and availability message
-├── ttk.Notebook: expanding central area
-│   ├── Setup tab
-│   │   ├── Tool row: ROI, ruler, pupils/estimates, presets, zoom and Fit
-│   │   ├── Image area: Canvas with vertical/horizontal scrollbars
-│   │   ├── Selection description
-│   │   └── Keyboard hints, Reset and Confirm selection
-│   └── Results & log tab
-│       ├── Folder/report controls and figure-navigation buttons
-│       ├── Figure display
-│       └── Read-only execution log
-└── Bottom bar: status text, progress bar, Run and Cancel
+├── Dark header: logo, title, Hide panel / Show panel
+├── Horizontal PanedWindow with draggable divider
+│   ├── Scrollable settings sidebar
+│   │   ├── Video card: path, metadata, Choose video
+│   │   ├── Frames to compare: times and Apply / load frames
+│   │   ├── Measurement: ROI, Calibration, Ruler (cm)
+│   │   ├── Advanced options (collapsed): manual pupils and OpenCL
+│   │   └── Steps: numbered checklist, hint, Go to next step
+│   └── Main ttk.Notebook
+│       ├── Setup: selection toolbar, instruction callout, image canvas,
+│       │          saved overlays, Reset and Confirm selection
+│       └── Results & log: folder/report/Prev/Next controls,
+│                          explanation, zoom toolbar, figure canvas,
+│                          optional execution log
+└── Bottom bar: status, progress, Cancel run and Run all notebooks (0–4)
 ```
 
-The starting window is **1280 × 850**, with a **1000 × 700** minimum. Layout uses
-Tk's `pack()` geometry manager. `fill='x'` stretches rows horizontally;
-`fill='both', expand=True` gives the central tabs/image areas the remaining space.
-`side='left'` / `'right'` arranges controls within a row. Padding separates widgets.
-There are no web-style responsive breakpoints; resizing redistributes available
-space, and the canvas scrollbars help inspect a zoomed image. **Fit** explicitly
-recalculates the image scale for the current canvas size.
+The app attempts to maximize the window, with a **1280 × 800** fallback and a
+**900 × 600** minimum. The sidebar's remembered-in-session width starts at 344 px;
+its pane minimum is 270 px and the main pane minimum is 480 px. The sidebar can
+be hidden and restored from the header. `pack()` allocates most space, `grid()`
+aligns fields within cards, and the horizontal pane divides settings from tabs.
+The bottom bar and confirmation rows are packed before expanding image areas so
+images shrink first on shorter windows.
+
+`theme.apply_theme()` selects the `clam` ttk base and applies the project's light
+palette: teal for structure/completed steps, amber for the next action, white
+cards and a dark image canvas. Font selection tries installed Inter, Segoe UI,
+Ubuntu, Noto Sans and Cantarell before retaining Tk's default family. Tooltips and
+instruction callouts explain controls without changing analysis state.
+
+`theme.Stepper` is a canvas-based checklist with completed, pending, next and
+skipped appearances. Clicking a row invokes its corresponding enabled control;
+**Go to next step ▶** opens setup tools only and never starts a run. The final
+Run row can invoke the Run button when enabled.
+
+Labels rewrap on resize. Setup Fit adapts to canvas resize until the user zooms;
+Results has its own fit/zoom state. Mouse-wheel handling routes scrolling to the
+sidebar or image under the pointer. Scrollbars and hiding the sidebar provide
+space for large plots without changing stored image coordinates.
 
 ### 5.6 Widgets, values and event bindings
 
@@ -495,9 +630,9 @@ is not the same as applying it to the analysis.
 | `ttk.Entry` | Read-only video path; editable times/distance | `textvariable` connects it to a `StringVar` such as `t1`, `t2` or `distance` |
 | `ttk.Checkbutton` | ROI, calibration, manual pupils, GPU and overlays | `variable` connects to a `BooleanVar`; `command` handles the click |
 | `ttk.Button` | Choose, Apply, selection tools, Run and navigation | `command=self.method` calls a method without a mouse-event argument |
-| `ttk.Label` | Title, metadata, hints, status and result image | Static `text`, changing `textvariable`, or a Tk image |
-| `tk.Canvas` | Setup image and editable overlay shapes | Draw image/lines/rectangles/circles and bind mouse/keyboard events |
-| `ttk.Scrollbar` | Move around the setup canvas | Its `command` calls `canvas.xview`/`yview`; the canvas updates the scrollbar position |
+| `ttk.Label` / `tk.Label` | Branding, metadata, hints, status and figure explanations | Static `text`, changing `textvariable`, or an image reference |
+| `tk.Canvas` | Setup image/overlays, Results image, sidebar viewport and checklist | Draw shapes/images, scroll content and bind mouse/keyboard events |
+| `ttk.Scrollbar` | Move around Setup, Results and the sidebar | Its `command` calls `canvas.xview`/`yview`; the canvas updates the scrollbar position |
 | `ttk.Combobox` | Choose an exported notebook report | Read-only list of HTML filenames tied to `report_names` |
 | `tk.Text` | Execution log | `append_log()` briefly enables writing, appends text, scrolls down and disables editing again |
 | `ttk.Progressbar` | Completed-cell progress | `poll()` assigns its numeric `value`, with a maximum of 100 |
@@ -548,11 +683,13 @@ image, and keeping that Python reference prevents it from disappearing when
 Python releases an otherwise unreferenced image. `render()` clears the canvas and
 recreates the image and overlays on each redraw; it does not run segmentation.
 
-Overlay colors and shapes are defined directly in `render()`:
+Analysis overlays are drawn by `draw_saved()` and `draw_draft()`, called from
+`render()`. Their colors come from constants in `desktop.py`; the canvas
+background comes from `theme.CANVAS_BG`:
 
 | Appearance | Meaning |
 | --- | --- |
-| Dark canvas background (`#20252b`) | Empty display area outside the shown image |
+| Dark canvas background (`#10242a`) | Empty display area outside the shown image |
 | Blue dashed shapes (`#55c5ff`, tag `saved`) | Previously stored ROI/ruler/pupil values or an automatic pupil estimate |
 | Green rectangle/crosses (`#00ff70`) | Current draft rectangle or clicked points; numbered crosses preserve click order |
 | Yellow circle/line | Preview of the two-point pupil/ruler draft before confirmation |
@@ -577,10 +714,32 @@ image. When drawing overlays, `render()` multiplies original coordinates by the
 same scale. This is why zooming and scrolling must never directly modify saved
 pupil centers, ruler points or ROI dimensions.
 
-The Results figure display is simpler: `figure()` opens a saved PNG, makes a
-thumbnail bounded by **1000 × 470**, keeps it in `self.result_photo`, and shows it
-with the filename in a label. It does not provide the Setup canvas's zoom/point
-editing. Previous/Next wrap around the saved figure list.
+Results rendering has a separate pipeline:
+
+```text
+Saved PNG → figure() → flatten() into RGB Pillow image (result_pil)
+                      → figure_note() reads current figure_notes.yaml
+                      → draw_result() resizes/caches result_photo
+                      → centered image in result_canvas
+```
+
+`flatten()` composites transparency over white. `figure()` resets fit mode,
+updates the counter, filename title and explanation, and resets scroll position.
+`draw_result()` fits within the canvas at no more than native resolution or uses
+the manual zoom scale. Downscaling uses Lanczos; enlargement uses bilinear
+interpolation. `result_size` avoids repeating the resize when dimensions have not
+changed, while `result_photo` keeps the Tk image alive.
+
+`zoom_result()` limits display size to at most 8× and approximately 40 million
+pixels. Dragging pans with `scan_mark()`/`scan_dragto()`; the shared wheel handler
+supports vertical scrolling, Shift-horizontal scrolling and Ctrl-zoom. Setup
+retains its separate coordinate mapping and editing controls. Result figures
+have no editable pupil/ROI selections.
+
+`figure_note(path)` looks up the PNG stem in the shared YAML, then tries matching
+trailing-`*` prefixes in longest-first order. It returns the stem and plain-text
+explanation, or a fallback prompt. See [editing explanations](#37-editing-figure-explanations)
+for the file format and refresh behavior.
 
 ### 5.8 How the frontend decides what is clickable
 
@@ -612,15 +771,20 @@ change that saved input.
 
 ### 5.9 Changing the look without changing the analysis
 
-The app currently has no separate frontend framework, stylesheet or custom
-`ttk.Style` theme. System ttk styling controls most widgets, so the app can look
-different on Linux and Windows. The title font, padding, wrapping widths, initial
-window size and canvas colors are set in `DesktopApp.__init__()` / `render()`.
+Edit `theme.py` for the palette, font selection, named ttk styles, `card()` and
+`Stepper`. Edit the `build_*()` methods in `desktop.py` for control grouping,
+labels, padding and layout. Setup overlays live in `draw_saved()`/`draw_draft()`;
+Results rendering lives in `draw_result()`.
 
-For a visual change, locate the relevant area in the widget tree above. Adjust
-labels, packing/padding, fonts or drawing styles there; keep the callbacks and
-coordinate conversions intact. For a behavior change, follow the function/state
-map in Sections 5.1–5.4 as well. Do not put segmentation loops inside `render()` or
+`theme.mark_image()` loads PNG assets, with a generated pupil/iris mark as a
+fallback. The header prefers `assets/logo.png`, then `assets/icon.png`; the window
+icon reverses that preference. Both are scaled for display and kept alive through
+Tk image references. Windows also sets an application taskbar identity in
+`main()`. Changing branding assets does not require modifying processing helpers.
+
+For a visual change, locate the relevant area in the widget tree above and keep
+callbacks and coordinate conversions intact. For a behavior change, follow the
+function/state map in Sections 5.1–5.4 as well. Do not put segmentation loops inside `render()` or
 a button callback, and do not update widgets from a worker thread. Background
 results must pass through `events` to `poll()` on Tk's main thread.
 
@@ -685,8 +849,10 @@ exploratory until segmentation and timing are independently validated.
 
 ## 7. Outputs and provenance
 
-GUI runs use `results/gui/<video>_<timestamp>_<unique id>/`. Standalone notebooks
-write to the configuration's output directory and may overwrite earlier files.
+GUI runs use `results/gui/<video>_<timestamp>_<unique id>/`. Prepared terminal
+runs can choose another isolated directory through configuration. Standalone
+notebooks write to the configuration's output directory and may overwrite earlier
+files.
 The entire repository-root `results/` directory is ignored by Git; outputs are
 created locally when you execute the pipeline, not shipped in a fresh checkout.
 The application creates required output directories automatically.
@@ -696,15 +862,17 @@ The application creates required output directories automatically.
 | `run_config.yaml` | Exact prepared settings for that GUI run |
 | `module0_*.csv` | Folder inventory and stimulus preview |
 | `module1_metrics.csv` | Image comparison PSNR/SSIM |
-| `module2/*.npy`, `measurements.csv` | Masks and raw/morphology measurements |
+| `module2/*.npy`, `module2/measurements.csv` | Masks and raw/morphology measurements |
 | `module2/reference_scores.csv` | Dice/IoU when actual manual masks are provided |
 | `module3/<video>/frame_features.csv` | Shape and RGB texture of comparison regions |
 | `module3/<video>/pupil_curve.csv` | One row per frame: time, raw/clean sizes, flags and coordinates |
 | `module3/<video>/eye_tracking.csv` | Per-frame crop origins, motion and tracking quality |
-| `physiological_parameters.csv` | Estimated response values, status and stimulus source |
-| `manual_validation.csv` | MAE/RMSE on accepted annotated frames when supplied |
-| `trial_variability.csv` | Summary of saved per-video response tables; one trial cannot estimate sample variability |
-| `figures/` | Comparisons, moving rectangles and pupil overlays |
+| `module3/<video>/physiological_parameters.csv` | Estimated response values, status and stimulus source |
+| `module3/<video>/manual_validation.csv` | MAE/RMSE on accepted annotated frames when supplied |
+| `module3/trial_variability.csv` | Summary of saved per-video response tables; one trial cannot estimate sample variability |
+| `module4/<video>/` | Compression files, metrics, baseline/JPEG curves and manifest; see [Module 4 files](#files-and-retention) |
+| `acceleration/process_*.json` | Per-kernel OpenCL availability, dispatch attempts and explicit fallback diagnostics |
+| `figures/` | Comparisons, moving rectangles and pupil overlays; shared descriptions come from project-root `figure_notes.yaml` |
 | `validation/` | Executed notebooks, HTML reports, JSON-lines event log and status |
 
 Useful curve columns include `frame_index`, `timestamp_s`, `accepted`,
@@ -721,6 +889,8 @@ execution counts, while GUI execution preserves its copies inside `results/`.
 
 ## 8. Testing and troubleshooting
 
+### 8.1 Automated checks
+
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
 python -m pip check
@@ -732,10 +902,37 @@ images, masked texture, temporal gap handling, response estimates, selection
 controls, runner events/cancellation and folder-opening behavior. They do not
 replace manual contours or physiological ground truth.
 
-Real-video validation has exercised A_2 with all ROI/calibration toggle combinations.
-A real-display Tk smoke check and actual-kernel cancellation were also performed.
-Historical validation notes may exist in local results folders or older Git
-commits; fresh checkouts do not include generated validation evidence.
+Earlier project validation exercised A_2 with ROI/calibration toggle combinations,
+a real-display Tk smoke check and actual-kernel cancellation. These historical
+checks do not verify every layout change in the latest GUI. Fresh checkouts do
+not include their generated evidence.
+
+### 8.2 Latest full-run verification: 2026-10-26
+
+A fresh Linux CPU run of `/home/zenith/Videos/PSIB/A_2.mp4` completed all five
+notebooks using saved manual pupil seeds, an eye ROI and ruler calibration.
+The isolated local run is
+`results/figure_notes_review/A_2_20261026_224144/`; inspect its `run_config.yaml`,
+`run.log`, `validation/status.json` and executed reports for reproducibility.
+It was a terminal run using the GUI configuration builder, not a new live-display
+GUI or Windows launcher test.
+
+- All 55 PNG figures were generated and visually inspected, including the
+  selected-frame comparisons, tracking overlays and temporal JPEG comparison.
+- All 55 figure stems have nonempty explanations in `figure_notes.yaml`, and the
+  current GUI `figure_note()` lookup resolved every entry successfully.
+- The full-video baseline decoded 238 frames and accepted 232. JPEG Q=50 accepted
+  235; JPEG Q=10 accepted 91. These counts come from
+  `module4/A_2/diameter_comparison.csv`; settings and recording affect the result.
+- The response table reports `estimated_unvalidated` and uses an estimated
+  brightness-change time. Successful execution and accepted frames do not
+  establish anatomical boundary or physiological accuracy. Some dark-frame masks
+  remain irregular, and strong JPEG compression changes tracking substantially.
+
+The local recording and generated results are ignored by Git; this directory is
+a run record on the development machine, not a bundled sample or universal output.
+
+### 8.3 Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -745,7 +942,10 @@ commits; fresh checkouts do not include generated validation evidence.
 | Eye leaves the crop | Choose context around the eye and review tracking flags; a bigger crop alone does not establish reliable tracking |
 | Old Python code in Jupyter | Restart its kernel before rerunning; restart the desktop app after GUI code changes |
 | Missing fonts in OpenCV | Selection helpers fall back to installed fonts; desktop Tk selectors do not use OpenCV windows |
-| Results folder will not open | The app strips OpenCV-specific library settings and tries xdg-open/gio; errors show the path and reason |
+| Results folder will not open | On Windows the app uses File Explorer via `os.startfile`; on Linux it strips OpenCV library settings and tries `xdg-open`/`gio`. Errors show the path and reason |
+| Windows launch fails or closes with an error | Read the `PSIB.vbs` error dialog and `psib_launch.log`, or use `PSIB.bat` for visible console output |
+| Figure explanation is missing | Check the PNG stem, YAML syntax and prefix rule in project-root `figure_notes.yaml`; navigate Prev/Next to reload |
+| Figures are small or controls are hard to reach | Use Results zoom/Fit, scroll the sidebar or hide it from the header; application zoom does not change measurements |
 | No desktop display/Tkinter | Use a desktop session and install the OS Tk package |
 
 ## 9. Maintenance and debloat policy
@@ -760,11 +960,11 @@ are ignored. Deleting an installed environment prevents execution until rebuilt.
 Removing already committed artifacts does not erase their old Git objects; history
 rewriting would be a separate, explicitly approved operation.
 
-A static source/notebook/test reference audit identified a small unused intensity
-helper and unused tracking buffers/contour construction. These can be removed
-without removing a supported workflow. Broader changes to stored results or
-optional notebook dependencies require the user's decision. The cleanup record
-is kept below as decisions are applied.
+The dated cleanup record below describes earlier changes. Current policy is to
+keep all generated outputs under ignored `results/`, publish source notebooks
+without saved cell outputs, and keep input recordings, profiles, launch logs and
+machine-specific settings local. Historical exceptions below do not override
+these current ignore rules.
 
 ### Cleanup applied on 2026-10-14
 
@@ -904,8 +1104,8 @@ and bundling of a publishable example video remain a separate future task.
 
 ## 11. Optional OpenCL GPU requests
 
-The desktop **Request GPU (OpenCL)** checkbox is off by default and remembered in
-per-video profiles. Older profiles/configurations default to CPU. It does not
+The desktop **Advanced options → Request GPU (OpenCL)** checkbox is off by
+default and remembered in per-video profiles. Older profiles/configurations default to CPU. It does not
 invalidate pupil geometry, timestamps or ruler scale. The effective run YAML uses:
 
 ```yaml

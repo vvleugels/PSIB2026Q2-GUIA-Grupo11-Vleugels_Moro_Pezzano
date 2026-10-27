@@ -48,39 +48,46 @@ Folder opening needs the system's `xdg-open` or `gio`.
    **Tcl/Tk and IDLE** enabled. See the [Python Windows installation guide](https://docs.python.org/3.12/using/windows.html).
 2. Download the repository: on its GitHub page, click **Code → Download ZIP**.
    Right-click the downloaded ZIP and choose **Extract All**. Open the extracted
-   folder until you can see `gui.py`, `requirements.txt` and `PSIB.bat`.
-3. **Double-click `PSIB.bat`.**
+   folder until you can see `gui.py`, `requirements.txt`, `PSIB.vbs` and `PSIB.bat`.
+3. **Double-click `PSIB.vbs`** to open the app without a command window.
 
-The first launch installs the program automatically: it creates the `.venv`
-environment and installs `requirements.txt`. This needs an internet connection
-and can take a few minutes; a console window shows the progress. Later launches
-skip the installation and open the app directly.
+The first launch shows an installation notice, creates the `.venv` environment
+and installs `requirements.txt`. This needs an internet connection and can take
+a few minutes; console windows show the setup progress. Later launches reuse the
+environment and open the app with the console hidden.
+
+`PSIB.bat` remains available when you want to see console output, or if Windows
+cannot run the VBScript launcher.
 
 Choose your video with **Choose video…**; recordings are not bundled with the
 repository.
 
-What `PSIB.bat` does, in order:
+What `PSIB.vbs` does, in order:
 
-1. Moves to its own folder, so it works from any location, including a shortcut.
-2. If `.venv` does not exist, creates it with `py -3.12` and installs the
-   requirements. If either step fails, it prints the reason and waits for a key.
-   A partly installed `.venv` is removed so the next launch retries cleanly.
-3. Starts `gui.py` with the environment's Python. The console closes by itself
-   when you close the app.
+1. Moves to its own folder, so it works from a shortcut too.
+2. If `.venv/Scripts/python.exe` is missing, creates the environment with
+   `py -3.12` and installs the requirements. Dependency installation failure
+   removes the incomplete environment so the next launch can retry.
+3. Runs `gui.py` with the environment's Python and hides the command window.
+   Output is saved to `psib_launch.log` in the project folder, replacing the
+   previous launch's log. If the app exits with an error, a dialog shows the end
+   of the log and its location.
 
-**Optional: desktop shortcut.** Right-click `PSIB.bat` → **Show more options** →
-**Send to** → **Desktop (create shortcut)**. In the shortcut's **Properties** you
-can set **Run: Minimized** and change its icon.
+**Optional: desktop shortcut.** Right-click `PSIB.vbs` → **Show more options** →
+**Send to** → **Desktop (create shortcut)**. You can change the shortcut's icon in
+its **Properties**.
 
 **If something goes wrong**
 
 | Message or symptom | What to do |
 | --- | --- |
-| "Could not create the environment" | Python 3.12 or the `py` launcher is missing. Reinstall Python with the options in step 1 |
-| "Dependency installation failed" | Check your internet connection and double-click `PSIB.bat` again |
+| Environment creation fails (`No se pudo crear el entorno`) | Python 3.12 or the `py` launcher is missing. Reinstall Python with the options in step 1 |
+| Dependency installation fails (`Fallo la instalacion de las dependencias`) | Check your internet connection and launch again; use `PSIB.bat` to see detailed console output |
+| `PSIB.vbs` shows an app error dialog | Read the message and `psib_launch.log` in the project folder |
+| Windows cannot run `PSIB.vbs` | Use `PSIB.bat` or the manual setup below |
 | The console shows "Press any key to continue" after the app closes | The app exited with an error. Read the message above it |
 | A Tkinter / `_tkinter` error | Modify the Python installation to include **Tcl/Tk and IDLE**; do not install it through pip |
-| You changed `requirements.txt` or the environment is broken | Delete the `.venv` folder and double-click `PSIB.bat` again |
+| You changed `requirements.txt` or the environment is broken | Delete the `.venv` folder and launch `PSIB.vbs` or `PSIB.bat` again |
 
 **Manual setup (alternative)**
 
@@ -132,7 +139,7 @@ For manual YAML configuration, use forward slashes in Windows paths, for example
 
 **Windows notes**
 
-- **Open results folder** opens the run's directory in File Explorer. HTML reports
+- **Results folder** opens the run's directory in File Explorer. HTML reports
   open in your browser.
 - **Cancel run** ends the notebook runner and its kernels with `taskkill`. This has
   not been systematically validated on Windows (Linux is the tested platform). If a
@@ -146,22 +153,34 @@ New to the app? Follow the [step-by-step GUI walkthrough](documentation.md#3-des
 The documentation also maps [each button to its Python functions](documentation.md#51-functions-behind-the-buttons).
 See the [frontend guide](documentation.md#55-frontend-structure-and-layout) for widgets, layout, events and image rendering.
 
-The **Checklist** panel on the left shows what is done (✔), what to do next (▶)
-and what is pending (○). Steps that do not apply, such as the ruler when
-Calibration is off, are marked with –. A short hint under the list explains the
-current step, **Go to next step ▶** opens its tool, and clicking a step in the list
-does the same. The status line above the progress bar always says what is missing.
+The left panel groups video selection, comparison timestamps and measurement
+settings into cards. The **Steps** checklist uses teal check marks for completed
+steps, an amber numbered step for the next action, and outlined numbers for
+pending steps. Steps that do not apply, such as the ruler when Calibration is
+off, are marked with –. A hint below the list explains the current step;
+**Go to next step ▶** opens its tool, and clicking a step does the same. Start
+analysis with **Run all notebooks (0–4)** when the checklist is complete.
 
-1. Choose a video and apply the primary/secondary timestamps.
+Use **Hide panel** / **Show panel** in the header to give the image more space or
+restore the settings. **Advanced options** expands the manual pupil-selection
+and OpenCL controls. Hover over controls for short explanations. The status line
+above the progress bar says what is missing.
+
+1. Choose a video, enter the primary/secondary timestamps in seconds, and click
+   **Apply / load frames**.
 2. Enable **Select eye ROI** to draw a crop; disable it for full-frame measurements.
 3. Enable **Calibration** to select two ruler marks a known distance apart,
    normally 1 cm. Disable it for pixel-only measurements.
-4. Leave **Select pupils manually** on to select a center and boundary point in
-   each comparison frame. Turn it off to estimate both pupils automatically. Use
+4. Under **Advanced options**, leave **Select pupils manually** on to select a
+   center and boundary point in each comparison frame. Turn it off to estimate
+   both pupils automatically. Use
    **Primary estimate** / **Secondary estimate** to review the blue dashed circles.
 5. Confirm any manual selections, then click **Run all notebooks (0–4)**.
-6. Inspect the plots and executed notebook reports in **Results & log**. The
-   execution log is hidden by default; use **Show log** to display it.
+6. In **Results & log**, use **Next ▶** / **◀ Prev** to browse plots, **Fit** and
+   zoom controls to inspect them, and drag to pan. Select a notebook report and
+   click **Open report**, or click **Results folder** to browse saved files. The
+   execution log is hidden by default; use **Show log** to display it. It opens
+   automatically when a run fails or is cancelled.
 
 Use Zoom/Fit and scrollbars. Space resets a draft selection; Backspace/right click
 undoes a point; Enter confirms. **Show saved presets** displays previous selections
@@ -182,11 +201,35 @@ or turn manual selection back on. Full-frame mode follows a local eye region to
 estimate the second pupil, while keeping measurement frames full-size. Manual
 points and automatic estimates are stored separately in the per-video profile.
 
+## Figure explanations
+
+The **Results & log** tab shows an explanation above each plot. Edit
+[`figure_notes.yaml`](figure_notes.yaml) in the project folder to add or revise
+these texts. Use the PNG filename without `.png` as the key and `|` for multiple
+lines, for example:
+
+```yaml
+m0_brightness_vs_time: |
+  Shows how image brightness changes over time.
+  Compare brightness changes with the selected comparison timestamps.
+"m4_*": |
+  Module 4 compares original and compressed images.
+```
+
+An exact filename takes precedence over a trailing `*` prefix pattern. If several
+patterns match, the longest prefix wins. Save the file and press **Next ▶** or
+**◀ Prev** to reload the explanations without restarting the app. Figures with
+no explanation show their key and a prompt to add it. The supplied file covers
+all 55 figures in the current calibrated Modules 0–4 workflow. See the
+[figure-note guide](documentation.md#37-editing-figure-explanations) for naming,
+fallback behavior and the distinction between GUI notes and HTML reports.
+
 ## Optional GPU processing
 
-1. Start the app (`PSIB.bat` on Windows, or `python gui.py` from the activated
-   virtual environment).
-2. Tick **Request GPU (OpenCL)**, below the pupil-selection toggle.
+1. Start the app (`PSIB.vbs` or `PSIB.bat` on Windows, or `python gui.py` from
+   the activated virtual environment).
+2. Expand **Advanced options** and tick **Request GPU (OpenCL)**, below the
+   pupil-selection toggle.
 3. Read the message beside it. **OpenCL GPU available** means supported steps
    can request the GPU. **GPU unavailable … using CPU** means the run will still
    work, using the CPU instead.
@@ -266,17 +309,21 @@ camera distance.
 ## Repository contents
 
 `src/psib/` contains reusable processing and GUI code; `notebooks/` contains the
-experiments; `tests/` contains focused checks. `gui.py` starts the desktop app and
-`PSIB.bat` is its Windows launcher and installer. The application creates `results/`
-locally for generated figures, measurements, executed notebooks and reports. This
-entire directory is ignored and is not part of the repository. Source notebooks
+experiments; `tests/` contains focused checks. `gui.py` starts the desktop app.
+`PSIB.vbs` is the Windows launcher with a hidden console; `PSIB.bat` provides a
+console alternative. Both install the environment on first launch.
+`src/psib/theme.py` defines the GUI styles and checklist; `assets/logo.png` supplies
+the app branding, and `figure_notes.yaml` holds editable plot explanations.
+
+The application creates `results/` locally for generated figures, measurements,
+executed notebooks and reports. This entire directory is ignored and is not part of the repository. Source notebooks
 are committed without saved cell outputs or execution counts. Clear those outputs
 before committing notebooks that you ran manually; GUI runs already write executed
 copies under the ignored results directory.
 
-Videos, environments, presets, local settings and caches are also ignored. Older
-Git commits may still contain previously published results; removing them from the
-current tree does not rewrite repository history.
+Videos, environments, presets, local settings, caches and `psib_launch.log` are
+also ignored. Older Git commits may still contain previously published results;
+removing them from the current tree does not rewrite repository history.
 
 The source code is small compared with generated reports. See the documentation's
 maintenance section for the debloat audit and approved cleanup decisions.

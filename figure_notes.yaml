@@ -1,21 +1,355 @@
-# Text shown above each figure in the "Results & log" tab.
-#
-# - The key is the figure's file name without ".png". When a figure has no text yet,
-#   the app shows that name, so you can copy it from there.
-# - A key ending in "*" applies to every figure whose name starts with it
-#   (for example "m4_*"). An exact name wins over a pattern; among patterns the
-#   longest one wins.
-# - Use "|" for text on several lines. Save the file and press Next / Prev in the app
-#   to see the change; no restart is needed.
-
-# m4_*: |
-#   Module 4 (compression): compares the original image with its compressed versions.
-
-example_figure_name: |
-  Replace this key with a real figure name. Say what the figure shows, what to look
-  at first and how to read the axes or panels.
+# Explanations displayed above figures in the "Results & log" tab.
+# Keys are PNG filenames without ".png". A trailing "*" matches a filename prefix;
+# exact keys win, otherwise the longest matching prefix wins.
+# Use "|" for multiline plain text. Save and press Next / Prev to reload.
+# These notes describe panels and interpretation for any usable recording;
+# they do not assume a particular pupil size, response direction or best method.
+# Frame suffix 0 means primary; suffix 1 means secondary.
 
 m0_brightness_vs_time: |
-  Module 0 (brightness): shows how the brightness of the image changes with time.
+  Mean image brightness versus time for each recording in the inventory.
+  The horizontal axis is time in seconds; the vertical axis is mean gray level.
+  A dashed red line marks the estimated light change for A/B recordings. Compare
+  it with the frame preview: exposure changes and motion can also alter brightness.
 
-  ## falta terminar de armar los otros modulos
+m0_contact_sheet: |
+  Five frames spaced across the selected recording, with their decoded timestamps.
+  Read from left to right to inspect lighting, eye visibility, reflections and
+  camera motion before interpreting the processing results.
+
+m1_00_frames_roi: |
+  The two comparison frames and the eye regions used for processing.
+  Green rectangles on the full frames locate the regions enlarged on the right.
+  Check that both crops contain the same eye and keep the pupil inside the image;
+  their positions may differ because the region follows eye movement.
+
+m1_11_downsampling: |
+  The original color eye crop followed by versions sampled at fewer pixels.
+  Each reduced image is enlarged with nearest-neighbor display to expose its
+  pixel grid. Compare pupil-edge detail and iris texture as spatial resolution
+  decreases; enlargement does not restore the removed information.
+
+m1_11_hsv: |
+  Hue, saturation and value representations of the same eye crop.
+  Hue uses a color scale in degrees; saturation and value range from 0 to 1.
+  Compare color differences, color purity and brightness separately. Hue in
+  dark or weakly saturated regions should not be treated as a reliable boundary.
+
+m1_11_quantization: |
+  Reduced intensity precision in color (top row) and grayscale (bottom row).
+  Column labels give the bit depth and available levels per channel. Compare
+  smooth shading and pupil contrast: fewer levels produce visible intensity
+  steps and can merge details that were distinct in the original.
+
+m1_11_rgb_channels: |
+  The color eye crop and its red, green and blue channels shown separately in
+  grayscale. Brighter pixels mean a stronger value in that channel. Compare
+  pupil-to-iris contrast, reflections and texture across channels to understand
+  which color information helps distinguish the pupil.
+
+m1_12_brightness_contrast: |
+  Original grayscale crop, brightness adjustment and contrast adjustment above
+  their histograms. Histogram axes show gray level and pixel count. Brightness
+  shifts intensities; contrast changes their spread. Compare pupil visibility
+  and look for clipping at black or white, where intensity detail is lost.
+
+m1_12_equalization: |
+  Original, linear range scaling, global histogram equalization and local CLAHE.
+  Images are above their gray-level histograms; red curves show cumulative pixel
+  fractions on the right axes. Compare pupil contrast and texture while checking
+  whether enhancement also emphasizes noise or saturates bright regions.
+
+m1_12_noise_filters: |
+  Each row adds a different synthetic noise type: Gaussian, salt-and-pepper or
+  speckle. The first column is noisy input; later columns apply mean, median and
+  Gaussian filters. Compare noise removal with preservation of the pupil edge.
+  These are controlled perturbations of the same crop, not different recordings.
+
+m1_12_range_scaling: |
+  Linear contrast stretching between the selected lower and upper gray levels.
+  Dashed histogram lines mark these limits; the transfer curve maps input to
+  output intensity. Compare the original and stretched images and histograms:
+  values inside the range spread out, while values outside it become black or white.
+
+m1_12_reflection_filters: |
+  Mean, median and Gaussian filtering with progressively larger kernels.
+  Each row starts with the original crop. Compare the bright reflection inside
+  the eye with the pupil boundary: smoothing can reduce a reflection while also
+  blurring or shifting useful edges. Kernel size controls this tradeoff.
+
+m1_13_dft_reconstructions: |
+  Fourier magnitude and phase for the primary crop, plus the two source crops
+  and reconstructions using magnitude only, phase only or swapped components.
+  Compare where eye structures appear after phase swapping. Magnitude describes
+  frequency strength and phase carries spatial arrangement; reconstructed panels
+  are display-stretched and should not be compared as absolute brightness values.
+
+m1_13_edge_binary: |
+  Binary edge maps for the original crop (top) and prefiltered crop (bottom).
+  White pixels are selected edges; black pixels are background. Compare contour
+  continuity, missing pupil sections and isolated responses across operators.
+  A visible edge map does not by itself identify a closed pupil region.
+
+m1_13_edge_strength: |
+  Edge responses from Roberts, Sobel, Prewitt, Laplacian and Canny.
+  The top row uses the original grayscale crop; the bottom uses prefiltered input.
+  Bright structures indicate detected intensity changes; Canny is already binary.
+  Compare pupil contours with responses from eyelids, iris texture and reflections.
+
+m1_13_frequency_filters: |
+  Ideal, Gaussian and Butterworth frequency filters, one family per column.
+  Rows show the low-pass transfer function, low-pass image, high-pass transfer
+  function and high-pass image. Low-pass filtering smooths detail; high-pass
+  filtering emphasizes changes. Compare ringing and edge appearance; high-pass
+  results are stretched for display rather than shown at their original intensity.
+
+m1_13_psd: |
+  Spatial power spectra of the original and Gaussian-filtered crops, followed by
+  radial power profiles for all compared filters. Frequency is in cycles/pixel;
+  the maps use log power and the profile uses logarithmic axes. Compare the loss
+  of high-frequency power associated with smoothing fine texture and edges.
+
+m2_calibration: |
+  The full calibration frame with two selected ruler marks joined in red.
+  Their known separation sets the pixels-per-centimeter scale shown in the title.
+  Image axes are pixel coordinates. Check that the endpoints match the intended
+  ruler interval before interpreting measurements converted to physical units.
+
+m2_initialization_0: |
+  The primary eye crop with the pupil initialization overlaid in red.
+  The cross marks the starting center and the circle marks the starting radius.
+  Check that they lie on the intended pupil. This is the seed used by the
+  algorithms, rather than the final segmented boundary.
+
+m2_initialization_1: |
+  The secondary eye crop with the pupil initialization overlaid in red.
+  The cross marks the starting center and the circle marks the starting radius.
+  Check that they lie on the intended pupil. This is the seed used by the
+  algorithms, rather than the final segmented boundary.
+
+m2_morphology_0: |
+  Morphological variants of the selected segmentation for the primary frame.
+  White is foreground. Compare erosion, dilation, opening and closing with the
+  original mask; the combined cleanup removes small components and fills holes.
+  The final panel is a thin boundary skeleton. Check that cleanup preserves
+  the pupil shape instead of joining unrelated regions.
+
+m2_morphology_1: |
+  Morphological variants of the selected segmentation for the secondary frame.
+  White is foreground. Compare erosion, dilation, opening and closing with the
+  original mask; the combined cleanup removes small components and fills holes.
+  The final panel is a thin boundary skeleton. Check that cleanup preserves
+  the pupil shape instead of joining unrelated regions.
+
+m2_overlay_0: |
+  The cleaned segmentation boundary in red over the primary color eye crop.
+  Compare it directly with the visible pupil edge, especially around reflections
+  and eyelids. A useful result follows the pupil without extending into the
+  iris or excluding substantial pupil regions. Axes locate pixels within the crop.
+
+m2_overlay_1: |
+  The cleaned segmentation boundary in red over the secondary color eye crop.
+  Compare it directly with the visible pupil edge, especially around reflections
+  and eyelids. A useful result follows the pupil without extending into the
+  iris or excluding substantial pupil regions. Axes locate pixels within the crop.
+
+m2_segmentations_0: |
+  Segmentation candidates for the primary comparison frame, beside its eye crop.
+  Panels compare global/local Otsu, k-means cluster counts, an active contour
+  and watershed. White pixels belong to each candidate mask. Compare pupil
+  coverage and unwanted iris, eyelid or reflection regions before choosing a method.
+
+m2_segmentations_1: |
+  Segmentation candidates for the secondary comparison frame, beside its eye crop.
+  Panels compare global/local Otsu, k-means cluster counts, an active contour
+  and watershed. White pixels belong to each candidate mask. Compare pupil
+  coverage and unwanted iris, eyelid or reflection regions before choosing a method.
+
+m3_moving_eye_roi: |
+  Sampled full frames showing how the eye region moves during tracking.
+  Each rectangle locates the crop used for pupil processing; titles show time
+  and the tracking method. Green indicates a valid eye location and red an invalid
+  location. Check that the rectangle remains around the eye; this checks crop
+  placement separately from the pupil boundary inside it.
+
+m3_temporal_curve: |
+  Pupil size over time: equivalent diameter in pixels above, smoothed area in
+  square pixels below. The top panel compares raw estimates with the cleaned,
+  short-gap-interpolated and smoothed curve; red points mark rejected estimates.
+  Equivalent diameter is the diameter of a circle with the mask's area.
+  Read size changes alongside the tracking overlays and lighting preview.
+
+m3_texture_regions_0: |
+  Regions used for shape and texture features in the primary comparison frame.
+  Red outlines the segmented pupil; yellow outlines a surrounding sampling ring
+  separated from it by a small gap. Check their placement before comparing
+  descriptors. The ring is an approximate iris sample and may include other tissue.
+
+m3_texture_regions_1: |
+  Regions used for shape and texture features in the secondary comparison frame.
+  Red outlines the segmented pupil; yellow outlines a surrounding sampling ring
+  separated from it by a small gap. Check their placement before comparing
+  descriptors. The ring is an approximate iris sample and may include other tissue.
+
+m3_tracking_review: |
+  Sampled eye crops through the recording with pupil-mask boundaries overlaid.
+  Titles show frame number, time and acceptance status. Green contours passed
+  the pipeline checks; red contours were rejected. Inspect whether the boundary
+  follows the actual pupil through movement and lighting changes: acceptance
+  alone does not establish boundary accuracy.
+
+m4_frame0_algorithm_mask: |
+  JPEG reconstruction of the algorithm-generated pupil mask from the primary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the foreground shape and its boundary against the black background.
+  Lower quality can introduce blocks, blur and color or intensity changes. The source mask is binary, but JPEG reconstruction can introduce gray pixels.
+
+m4_frame0_algorithm_mask_edge: |
+  Enlarged pupil neighborhood from the primary algorithm-generated pupil mask, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection. Gray pixels and ringing near the border show that JPEG does not preserve a binary mask exactly.
+
+m4_frame0_algorithm_mask_errors: |
+  Absolute JPEG reconstruction error for the primary algorithm-generated pupil mask.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For the mask, the error is the absolute gray-level difference. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame0_eye_rgb: |
+  JPEG reconstruction of the color eye crop from the primary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare pupil-edge definition, iris texture and reflections.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame0_eye_rgb_edge: |
+  Enlarged pupil neighborhood from the primary color eye crop, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection.
+
+m4_frame0_eye_rgb_errors: |
+  Absolute JPEG reconstruction error for the primary color eye crop.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame0_original_rgb: |
+  JPEG reconstruction of the full color frame from the primary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the eye together with the surrounding face and scene.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame0_original_rgb_errors: |
+  Absolute JPEG reconstruction error for the primary full color frame.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame0_segmented_rgb: |
+  JPEG reconstruction of the masked color eye crop from the primary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the retained pupil colors and the transition to the black background.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame0_segmented_rgb_edge: |
+  Enlarged pupil neighborhood from the primary masked color eye crop, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection.
+
+m4_frame0_segmented_rgb_errors: |
+  Absolute JPEG reconstruction error for the primary masked color eye crop.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame1_algorithm_mask: |
+  JPEG reconstruction of the algorithm-generated pupil mask from the secondary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the foreground shape and its boundary against the black background.
+  Lower quality can introduce blocks, blur and color or intensity changes. The source mask is binary, but JPEG reconstruction can introduce gray pixels.
+
+m4_frame1_algorithm_mask_edge: |
+  Enlarged pupil neighborhood from the secondary algorithm-generated pupil mask, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection. Gray pixels and ringing near the border show that JPEG does not preserve a binary mask exactly.
+
+m4_frame1_algorithm_mask_errors: |
+  Absolute JPEG reconstruction error for the secondary algorithm-generated pupil mask.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For the mask, the error is the absolute gray-level difference. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame1_eye_rgb: |
+  JPEG reconstruction of the color eye crop from the secondary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare pupil-edge definition, iris texture and reflections.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame1_eye_rgb_edge: |
+  Enlarged pupil neighborhood from the secondary color eye crop, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection.
+
+m4_frame1_eye_rgb_errors: |
+  Absolute JPEG reconstruction error for the secondary color eye crop.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame1_original_rgb: |
+  JPEG reconstruction of the full color frame from the secondary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the eye together with the surrounding face and scene.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame1_original_rgb_errors: |
+  Absolute JPEG reconstruction error for the secondary full color frame.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_frame1_segmented_rgb: |
+  JPEG reconstruction of the masked color eye crop from the secondary comparison frame.
+  The first panel is the source; later panels use the quality settings in
+  their titles. Compare the retained pupil colors and the transition to the black background.
+  Lower quality can introduce blocks, blur and color or intensity changes.
+
+m4_frame1_segmented_rgb_edge: |
+  Enlarged pupil neighborhood from the secondary masked color eye crop, before and
+  after JPEG compression. Compare the source boundary with the quality
+  settings shown across the row. Look for block edges, blur and loss
+  of fine detail that may affect boundary detection.
+
+m4_frame1_segmented_rgb_errors: |
+  Absolute JPEG reconstruction error for the secondary masked color eye crop.
+  Each panel compares one quality setting with the source on the same fixed
+  0-255 scale: dark means little change and brighter colors mean larger error.
+  For RGB images, the error is averaged across the three channels. Compare where errors concentrate,
+  especially near the pupil edge; this measures compression change, not segmentation accuracy.
+
+m4_quality_vs_ratio: |
+  Compression ratio versus reconstruction quality for the full frame, eye crop,
+  masked crop and pupil mask. Higher PSNR and SSIM indicate closer agreement with
+  the source; farther right means fewer encoded bytes relative to raw array bytes,
+  including file headers. Circles are primary-frame results and triangles secondary.
+  Lossless PSNR is infinite and omitted from the top row; lossless SSIM is 1.
+  Black backgrounds can dominate whole-image scores, so inspect edge enlargements too.
+
+m4_temporal_diameter: |
+  Full-video pupil tracking repeated with an uncompressed baseline and JPEG inputs.
+  The top panel compares smoothed equivalent diameters in pixels over time.
+  The lower panel shows raw diameter differences from baseline only where both
+  runs accepted the same frame; values near zero indicate agreement. Compare
+  response shape and divergence together with acceptance rates in the saved tables.
+  Agreement measures compression effects, rather than anatomical accuracy.
