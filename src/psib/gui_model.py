@@ -7,7 +7,7 @@ import json
 import math
 import numpy as np
 from .calibration import pixels_per_cm
-from .video_io import read_frames_at_times
+from .video_io import read_frames_at_times, record_type
 from .roi import tracked_frame_rois
 
 
@@ -29,6 +29,11 @@ class Setup:
     use_gpu: bool = False
     manual_pupils: bool = True
     automatic_pupils: list = field(default_factory=lambda: [None, None])
+    record_type: str | None = None
+
+    @property
+    def effective_record_type(self):
+        return self.record_type if self.record_type is not None else record_type(self.video)
 
     @property
     def active_pupils(self):
@@ -49,6 +54,8 @@ class Setup:
     def missing(self):
         """Return user-facing reasons why this setup cannot execute safely yet."""
         errors=[]
+        if self.effective_record_type not in ('A', 'B'):
+            errors.append('Choose record type A (dark to light) or B (light to dark)')
         if not Path(self.video).is_file(): errors.append('Choose an existing video')
         elif ProfileStore.fingerprint(self.video)!=self.fingerprint: errors.append('Video changed: reopen it and redo image selections')
         if not all(math.isfinite(float(t)) for t in self.times) or not 0<=self.times[0]<self.times[1]<=self.duration:
@@ -150,7 +157,8 @@ def effective_config(setup,base,output_dir,project_root):
         distance_cm=setup.distance_cm,points_xy=setup.ruler_points if setup.calibration_enabled else None)
     cfg['module2'].update(initialization_mode='manual',initializations=deepcopy(setup.active_pupils),reference_masks=[None,None],
                           initialization_source='manual' if setup.manual_pupils else 'automatic')
-    cfg['module3'].update(roi_reference_time_s=setup.times[0],manual_measurements_csv=None)
+    cfg['module3'].update(roi_reference_time_s=setup.times[0],manual_measurements_csv=None,
+                          record_type=setup.effective_record_type)
     return cfg
 
 

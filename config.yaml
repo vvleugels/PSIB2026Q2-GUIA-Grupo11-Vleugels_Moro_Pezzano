@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # Single configuration file of the pipeline.
-# To process a different recording, only `video_path` has to change
+# To process a different recording, set video_path and confirm module3.record_type
 # (it can also be overridden with the environment variable PSIB_VIDEO_PATH).
 # ---------------------------------------------------------------------------
 
@@ -10,7 +10,6 @@ video_path: "data/A_2.mp4"
 # Folder with all the recordings (Module 0 inventories it).
 # Can be overridden with the environment variable PSIB_VIDEO_DIR.
 video_dir: "data"
-video_patterns: ["A_*.mp4", "B_*.mp4"]
 
 # Where tables and figures are written (relative to this file)
 output_dir: "results"
@@ -117,7 +116,7 @@ module3:
   max_gap_s: 0.15
   smooth_window_s: 0.15
   stimulus_time_s: null   # set a visually confirmed time; null estimates from brightness
-  record_type: null       # null infers A/B from filename
+  record_type: null       # A (dark -> light) | B (light -> dark); null infers A_/B_ names
   baseline_window_s: 1.0
   min_baseline_frames: 10
   response_window_s: 5.0

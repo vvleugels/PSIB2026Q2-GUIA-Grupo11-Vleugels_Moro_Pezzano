@@ -15,6 +15,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+VIDEO_EXTENSIONS = ('.mp4', '.mov', '.avi', '.mkv')
+
 
 def _open(path) -> cv2.VideoCapture:
     cap = cv2.VideoCapture(str(path))
@@ -25,19 +27,24 @@ def _open(path) -> cv2.VideoCapture:
     return cap
 
 
-def list_videos(video_dir, patterns=("A_*.mp4", "B_*.mp4")) -> list[Path]:
-    """Videos in ``video_dir`` matching any glob pattern, sorted by name (A first, then B)."""
+def list_videos(video_dir, patterns=None) -> list[Path]:
+    """List supported video files regardless of name, sorted case-insensitively.
+
+    Optional glob patterns are an explicit caller filter, never a pipeline default.
+    """
     folder = Path(video_dir)
     if not folder.is_dir():
         raise FileNotFoundError(f"Video folder not found: {folder}")
-    found = [p for p in folder.iterdir() if any(fnmatch.fnmatch(p.name, pat) for pat in patterns)]
+    found = [p for p in folder.iterdir()
+             if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
+             and (patterns is None or any(fnmatch.fnmatch(p.name, pat) for pat in patterns))]
     return sorted(found, key=lambda p: p.name.lower())
 
 
 def record_type(path) -> str:
-    """'A' (dark->light) or 'B' (light->dark) from the file name, '?' otherwise."""
+    """Infer A/B from an optional A_/B_ filename prefix, '?' otherwise."""
     name = Path(path).name.upper()
-    return name[0] if name[:1] in ("A", "B") else "?"
+    return name[0] if name.startswith(("A_", "B_")) else "?"
 
 
 def scan_video(path, downscale: float = 0.25) -> dict:

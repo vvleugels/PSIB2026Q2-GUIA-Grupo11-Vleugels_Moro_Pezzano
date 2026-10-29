@@ -68,29 +68,26 @@ display is needed for the app and standalone OpenCV selection windows.
 | Entry point | Purpose |
 | --- | --- |
 | `gui.py` | Start the desktop application with the active Python environment |
-| `PSIB.vbs` | Windows first-launch installer and launcher with a hidden console |
 | `PSIB.bat` | Windows installer/launcher with visible console output |
 | `validate_notebooks.py` | Execute notebooks and preserve executed copies |
 | `notebooks/00_…04_*.ipynb` | Run experiments manually in Jupyter |
 | `tests/` | Focused automated checks; no real-video anatomical ground truth |
 
-### 2.2 Windows launchers
+### 2.2 Windows launcher
 
 Install 64-bit Python 3.12 with pip, the `py` launcher and **Tcl/Tk and IDLE**.
-Extract or clone the project, then double-click **PSIB.vbs** in the folder
-containing `gui.py` and `requirements.txt`. On first launch it displays a setup
-notice, creates `.venv` using `py -3.12` and installs the base requirements in
-visible console windows. Later launches reuse `.venv/Scripts/python.exe` and hide
-the console while the app runs.
+Extract or clone the project, then double-click **PSIB.bat** in the folder
+containing `gui.py` and `requirements.txt`. On first launch it creates `.venv`
+using `py -3.12` and installs the base requirements. The console displays setup
+progress and application output; keep it open while using the app. Later launches
+reuse `.venv\Scripts\python.exe`.
 
-The launcher redirects application output to `psib_launch.log`, replacing that
-file on each launch. If the app exits with an error, a dialog shows the last part
-of the log and its path. Dependency installation failure removes the incomplete
-environment so the next launch can retry. Use **PSIB.bat** for visible output or
-when VBScript cannot run. Both launchers change to their own directory, so a
-shortcut can point to the launcher without manually setting its working folder.
-If requirements change, update the environment with pip or remove `.venv` and
-launch again; an existing environment is not automatically upgraded.
+Dependency installation failure removes the incomplete environment so the next
+launch can retry. Setup failures display a message and wait for a key; an
+application error also leaves the console open. The launcher changes to its own
+directory, so a shortcut needs no separate working-folder setting. If requirements
+change, update the environment with pip or remove `.venv` and launch again; an
+existing environment is not automatically upgraded.
 
 Manual setup in Windows Command Prompt, from the project folder:
 
@@ -103,7 +100,7 @@ python gui.py
 
 See the [README Windows guide](README.md#windows) for shortcut and installation
 troubleshooting. Windows launcher and cancellation behavior still need platform
-validation; the latest full notebook run was on Linux.
+validation; full notebook runs have been verified on Linux.
 
 ### 2.3 Notebooks and terminal execution
 
@@ -130,9 +127,18 @@ interactive selection calls are blocked rather than opening unexpected windows.
 Jupyter kernels need local communication ports even when no browser is involved.
 
 `--output-dir` changes the destination for executed notebook/report copies. The
-configuration's `output_dir` controls processing figures and tables; they are
-separate concepts. An explicit configuration outside the project should contain
-absolute input/output paths and a `project_root` when project-relative paths are used.
+configuration's `output_dir` controls processing figures and tables. For a
+prepared run, use a file named `run_config.yaml` with absolute input/output paths
+and a `project_root` for project-relative paths. Set `--output-dir` to choose
+where to save executed notebooks and reports:
+
+```bash
+python validate_notebooks.py --config /absolute/path/run_config.yaml --output-dir /absolute/path/reports
+```
+
+The prepared file must include a valid `module3.record_type` (A or B) for names
+without an A_/B_ prefix. Save it under a distinct name: passing the repository's
+`config.yaml` as `--config` retains the ordinary local-file/interactive behavior.
 
 ## 3. Desktop workflow: a guided walkthrough
 
@@ -144,8 +150,8 @@ hand.** It does not replace the image-processing algorithms inside the notebooks
 
 - The project installed following the [README setup instructions](README.md#install-and-open-the-desktop-app).
 - A desktop session. On Linux, activate `.venv` and run `python gui.py` from
-  the project folder; keep the terminal open. On Windows, launch `PSIB.vbs` or
-  `PSIB.bat`, which use the project environment automatically.
+  the project folder; keep the terminal open. On Windows, launch `PSIB.bat`,
+  which uses the project environment automatically.
 - Your video file; videos are not bundled with the repository.
 - A visible ruler of known spacing **only if** you want calibrated measurements.
   Without a ruler, turn Calibration off and use pixel measurements.
@@ -159,6 +165,7 @@ from your clicks or from the optional automatic estimator.
 | Area/control | What it does | What you need to provide |
 | --- | --- | --- |
 | **Choose video…** | Loads video metadata and any saved profile for that file | One readable video |
+| **Record type** | Selects A (dark → light) or B (light → dark), saved per video | Required before Run; A_/B_ names preselect an editable value |
 | **Primary (s)** / **Secondary (s)** | Choose the two comparison frames | Two different, ordered times within the recording |
 | **Apply / load frames** | Loads the chosen frames and prepares their tracked crops/automatic estimates | Click after editing timestamps |
 | **Select eye ROI** | On: use a selected moving eye crop. Off: measure full frames | A rectangle only when enabled |
@@ -184,7 +191,11 @@ and end of a video clip. Modules 3 and 4 still process the whole recording.
 1. **Open the app and choose a video.** Click **Choose video…**, select your file,
    and wait for the dimensions, last-frame time and preview to appear. The first
    scan can take a while because the app decodes the recording. An unchanged
-   video's saved settings may be restored automatically.
+   video's saved settings may be restored automatically. In **Record type**,
+   choose **A — Dark to light** or **B — Light to dark**. Any filename is allowed
+   for MP4, MOV, AVI and MKV; A_/B_ prefixes preselect an editable type. An unknown
+   name stays unclassified until you choose, and Run requires a valid type.
+   The choice is saved with the video's profile.
 2. **Check the comparison times.** For A_2, 1 s and 5 s are the existing example
    values; they are not universal settings for every video. Choose a useful early
    frame and a later comparison frame. Both must be within the displayed
@@ -252,6 +263,7 @@ background preparation to finish.
 | Situation | What to do |
 | --- | --- |
 | No video / unreadable video | Choose a readable video; check the error message |
+| Record type missing | Choose A (dark → light) or B (light → dark) in the Video card; renaming the file is unnecessary |
 | Times changed, out of range, reversed or decode to the same frame | Correct them and click Apply; Primary must be earlier than Secondary |
 | ROI enabled but no rectangle saved | Draw an eye rectangle and confirm it |
 | Calibration enabled but points/distance missing | Enter a positive distance and confirm two distinct ruler marks, or disable calibration |
@@ -279,8 +291,8 @@ runs after an app restart; open those saved directories/reports directly.
 
 The execution log is initially hidden. **Show log ▲** expands it and
 **Hide log ▼** collapses it. The app shows it automatically after a failed or
-cancelled run. This notebook execution log is separate from the Windows
-launcher's `psib_launch.log`.
+cancelled run. Launcher output appears in the console opened by `PSIB.bat`;
+notebook progress and messages appear in this in-app log.
 
 The main time series is `module3/<video>/pupil_curve.csv`; the response summary is
 `module3/<video>/physiological_parameters.csv`. Inspect `figures/` for segmentation
@@ -375,7 +387,7 @@ not edit the published or local configuration.
 
 | Group | Key settings |
 | --- | --- |
-| Inputs/outputs | `video_path`, `video_dir`, patterns, `output_dir` |
+| Inputs/outputs | `video_path`, `video_dir`, `output_dir`; inventory accepts any name with MP4/MOV/AVI/MKV extension |
 | Acceleration | `acceleration.gpu: false` by default; GUI toggle overrides this for the selected video |
 | Representative frames | `frames.primary_time_s`, `secondary_time_s` |
 | ROI | `manual` with `(x,y,w,h)`, `interactive`, or `full_frame` |
@@ -391,6 +403,15 @@ notebook settings, set the video inventory directory to the selected
 video's parent, and clear optional reference-mask/manual-measurement paths to avoid
 accidentally reusing annotations from a different video. To use those validation
 inputs, prepare an appropriate configuration and run the notebook/runner directly.
+The GUI overwrites the base `module3.record_type` with the video's selected type.
+
+Filenames need no experimental prefix. Choose **Record type** in the GUI, or set
+`module3.record_type: A` / `B` for manual notebook runs. A null value infers only
+the optional `A_` / `B_` filename convention. The inventory includes all supported
+video files in `video_dir`, regardless of name; legacy `video_patterns` settings
+do not filter notebook inventories. Only the selected video uses its explicit
+record type. Other videos without A_/B_ names are listed with unknown type and
+have no stimulus estimate in the inventory preview.
 
 ## 5. Architecture and data flow
 
@@ -462,6 +483,7 @@ loads the base YAML and connects each control to a callback.
 | Action | Main functions | Input → result |
 | --- | --- | --- |
 | Choose a recording | `DesktopApp.browse()`, `video_io.scan_video()`, `ProfileStore.load()` | Video path → dimensions, last-frame time and restored/new `Setup`; then calls `apply()` |
+| Choose record type | `DesktopApp.change_record_type()`, `Setup.effective_record_type`, `ProfileStore.save()` | A/B choice → saved per-video setting; run config uses it instead of the base YAML type |
 | Apply times / prepare images | `DesktopApp.apply()`, `Setup.change_geometry()`, `prepare_views()`, `video_io.read_frames_at_times()`, `roi.tracked_frame_rois()` | Setup + base settings → two decoded frames and tracked comparison crops; exceptions leave setup blocked |
 | Estimate pupils automatically | `estimate_comparison_pupils()`, `estimate_pupil()` | Comparison frames/crops → two crop-local center/radius dictionaries; full-frame searches map back to full-frame coordinates |
 | Change ROI/calibration/pupil mode | `DesktopApp.toggle()` | Checkbox values → updated setup and another preparation pass |
@@ -488,7 +510,8 @@ of stale selections or incorrect coordinate conversions.
 | State | Purpose |
 | --- | --- |
 | `base` | Algorithm settings read from local/example YAML; not rewritten by the GUI |
-| `setup` (`Setup`) | Video identity/metadata, times, toggles, ROI, ruler points, manual pupil values and automatic pupil values |
+| `setup` (`Setup`) | Video identity/metadata, record type, times, toggles, ROI, ruler points, manual pupil values and automatic pupil values |
+| `setup.effective_record_type` | Explicit per-video A/B choice, or inference from an A_/B_ prefix for an older/unset profile |
 | `setup.active_pupils` | Chooses manual or automatic values according to the toggle; `effective_config()` copies only the active pair |
 | `frames` | Two `(upright RGB image, actual timestamp, frame index)` entries decoded from the video |
 | `crops` | Two `(RGB measurement image, full-frame ROI rectangle)` entries; ROI-off images remain full-frame |
@@ -513,7 +536,8 @@ adds the crop origin when showing the primary pupil over a full-frame preview.
    calls `effective_config()`. That function validates `Setup`, copies the base
    settings and writes fixed numeric pupil initializations, including automatic
    estimates. It clears unrelated manual annotation paths to avoid cross-video
-   reuse and respects the ROI/calibration/GPU toggles.
+   reuse, copies the per-video record type and respects the ROI/calibration/GPU
+   toggles.
 2. The GUI writes `run_config.yaml` in a new
    `results/gui/<video>_<timestamp>_<id>/` folder. It launches
    `validate_notebooks.py --config <file> --json-events` with the five explicit
@@ -525,7 +549,7 @@ adds the crop origin when showing the primary pupil over a full-frame preview.
    Arrays in one kernel are not passed directly to the next; notebooks read the
    same video/configuration and use their processing helpers and saved outputs.
    The runner saves executed copies and attempts HTML export without editing
-   the source notebooks. HTML-export errors are logged separately.
+   the source notebooks.
 5. A GUI monitor thread reads the runner's JSON lines and enqueues `run_event`
    messages. `poll()` runs on Tk's main thread about every 100 ms and consumes
    these messages. Notebook progress comes from completed code cells, not elapsed
@@ -581,7 +605,7 @@ Tk window: “PSIB — Pupil analysis”
 ├── Dark header: logo, title, Hide panel / Show panel
 ├── Horizontal PanedWindow with draggable divider
 │   ├── Scrollable settings sidebar
-│   │   ├── Video card: path, metadata, Choose video
+│   │   ├── Video card: path, metadata, Choose video, Record type
 │   │   ├── Frames to compare: times and Apply / load frames
 │   │   ├── Measurement: ROI, Calibration, Ruler (cm)
 │   │   ├── Advanced options (collapsed): manual pupils and OpenCL
@@ -633,7 +657,7 @@ is not the same as applying it to the analysis.
 | `ttk.Label` / `tk.Label` | Branding, metadata, hints, status and figure explanations | Static `text`, changing `textvariable`, or an image reference |
 | `tk.Canvas` | Setup image/overlays, Results image, sidebar viewport and checklist | Draw shapes/images, scroll content and bind mouse/keyboard events |
 | `ttk.Scrollbar` | Move around Setup, Results and the sidebar | Its `command` calls `canvas.xview`/`yview`; the canvas updates the scrollbar position |
-| `ttk.Combobox` | Choose an exported notebook report | Read-only list of HTML filenames tied to `report_names` |
+| `ttk.Combobox` | Choose A/B record type or an exported report | Read-only options tied to `record_type_var` or `report_names` |
 | `tk.Text` | Execution log | `append_log()` briefly enables writing, appends text, scrolls down and disables editing again |
 | `ttk.Progressbar` | Completed-cell progress | `poll()` assigns its numeric `value`, with a maximum of 100 |
 
@@ -641,7 +665,10 @@ is not the same as applying it to the analysis.
 `refresh()` as you type. This updates warnings and button eligibility; it does
 **not** decode new frames. The Apply button calls `apply()` to do that. Checkbox
 callbacks explicitly copy the chosen values into `Setup` and start any needed
-preparation/probe.
+preparation/probe. The Record type combobox binds `<<ComboboxSelected>>` to
+`change_record_type()`: it saves the choice immediately and refreshes eligibility
+without decoding frames or discarding image selections. It is disabled before a
+video is loaded and while the app is busy.
 
 Canvas `.bind()` callbacks receive a Tk event, including the pointer's `x`/`y`:
 
@@ -899,38 +926,47 @@ python -m pip check
 Tests cover geometry, profiles, configuration precedence, tracking/loss/recovery,
 full-frame coordinates and scale preservation, local segmentation on synthetic
 images, masked texture, temporal gap handling, response estimates, selection
-controls, runner events/cancellation and folder-opening behavior. They do not
-replace manual contours or physiological ground truth.
+controls, filename-independent inventory, per-video A/B selection, runner
+events/cancellation and folder-opening behavior. They do not replace manual
+contours or physiological ground truth.
 
 Earlier project validation exercised A_2 with ROI/calibration toggle combinations,
 a real-display Tk smoke check and actual-kernel cancellation. These historical
 checks do not verify every layout change in the latest GUI. Fresh checkouts do
 not include their generated evidence.
 
-### 8.2 Latest full-run verification: 2026-10-26
+### 8.2 Latest verification: 2026-10-28
 
-A fresh Linux CPU run of `/home/zenith/Videos/PSIB/A_2.mp4` completed all five
-notebooks using saved manual pupil seeds, an eye ROI and ruler calibration.
-The isolated local run is
-`results/figure_notes_review/A_2_20261026_224144/`; inspect its `run_config.yaml`,
-`run.log`, `validation/status.json` and executed reports for reproducibility.
-It was a terminal run using the GUI configuration builder, not a new live-display
-GUI or Windows launcher test.
+The current filename-independent workflow passed **57 automated tests**. A Linux
+CPU run completed all five notebooks using a copy of A_2 named
+`grabacion del ojo.MOV`, an explicit type A, saved manual pupil seeds, an eye ROI
+and ruler calibration. A legacy `video_patterns` entry was deliberately retained
+in the prepared YAML to verify that it no longer restricts the inventory.
 
-- All 55 PNG figures were generated and visually inspected, including the
-  selected-frame comparisons, tracking overlays and temporal JPEG comparison.
-- All 55 figure stems have nonempty explanations in `figure_notes.yaml`, and the
-  current GUI `figure_note()` lookup resolved every entry successfully.
-- The full-video baseline decoded 238 frames and accepted 232. JPEG Q=50 accepted
-  235; JPEG Q=10 accepted 91. These counts come from
-  `module4/A_2/diameter_comparison.csv`; settings and recording affect the result.
-- The response table reports `estimated_unvalidated` and uses an estimated
-  brightness-change time. Successful execution and accepted frames do not
-  establish anatomical boundary or physiological accuracy. Some dark-frame masks
-  remain irregular, and strong JPEG compression changes tracking substantially.
+- The inventory included the selected arbitrary filename and reported its
+  configured type A. A separate Module 0 run with no assigned type also completed:
+  it listed the video as `?` and wrote an empty stimulus-preview table with headers.
+- A Tk check exercised the Record type selector, saved/reloaded a choice, verified
+  its value in the effective configuration, and checked busy-state disabling.
+  This was a programmatic check, not an exhaustive manual layout review.
+- A separate audit run on the original A_2 filename completed all five notebooks.
+  Its full-video baseline decoded 238 frames and accepted 232; JPEG Q=50 accepted
+  235 and JPEG Q=10 accepted 91. These are pipeline acceptance counts, not
+  anatomical accuracy scores.
+- A real-kernel SIGTERM cancellation check preserved a partial executed notebook
+  and reported `cancelled`. No Windows launcher/cancellation or physical GPU
+  execution was verified.
 
-The local recording and generated results are ignored by Git; this directory is
-a run record on the development machine, not a bundled sample or universal output.
+The earlier 2026-10-26 figure-note review generated and inspected all 55 figures
+and resolved their explanations. The latest audit inspected the temporal pupil
+review; it did not repeat visual inspection of every figure. Some accepted
+contours remain irregular. No manual-reference segmentation accuracy or validated
+physiological accuracy is established by these runs.
+
+Inputs and generated evidence are local, not included in a fresh checkout.
+The filename test used temporary run directories. Historical figure-note evidence
+may still be present under `results/figure_notes_review/` on the development
+machine; its presence does not establish that the current code just ran.
 
 ### 8.3 Troubleshooting
 
@@ -943,7 +979,7 @@ a run record on the development machine, not a bundled sample or universal outpu
 | Old Python code in Jupyter | Restart its kernel before rerunning; restart the desktop app after GUI code changes |
 | Missing fonts in OpenCV | Selection helpers fall back to installed fonts; desktop Tk selectors do not use OpenCV windows |
 | Results folder will not open | On Windows the app uses File Explorer via `os.startfile`; on Linux it strips OpenCV library settings and tries `xdg-open`/`gio`. Errors show the path and reason |
-| Windows launch fails or closes with an error | Read the `PSIB.vbs` error dialog and `psib_launch.log`, or use `PSIB.bat` for visible console output |
+| Windows launch fails or closes with an error | Launch `PSIB.bat` and read the visible console output; see the README Windows troubleshooting table |
 | Figure explanation is missing | Check the PNG stem, YAML syntax and prefix rule in project-root `figure_notes.yaml`; navigate Prev/Next to reload |
 | Figures are small or controls are hard to reach | Use Results zoom/Fit, scroll the sidebar or hide it from the header; application zoom does not change measurements |
 | No desktop display/Tkinter | Use a desktop session and install the OS Tk package |

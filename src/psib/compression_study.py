@@ -81,6 +81,8 @@ def prepare_study(cfg):
     out.mkdir(parents=True, exist_ok=True)
     m3 = deepcopy(cfg['module3']); m3['roi_reference_time_s'] = frames[0][1]
     kind = m3['record_type'] or video_io.record_type(video)
+    if kind not in ('A', 'B'):
+        raise ValueError('Set module3.record_type to A (dark to light) or B (light to dark); any filename is allowed.')
     stimulus = m3['stimulus_time_s']
     if stimulus is None:
         scan = video_io.scan_video(video)

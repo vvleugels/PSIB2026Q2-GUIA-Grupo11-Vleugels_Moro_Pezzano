@@ -21,7 +21,7 @@ from .initialization import estimate_comparison_pupils
 from .acceleration import probe_gpu
 from .gui_model import (Setup, ProfileStore, CanvasGeometry, prepare_views,
                         effective_config, saved_overlays)
-from .video_io import scan_video, read_frames_at_times
+from .video_io import VIDEO_EXTENSIONS, scan_video, read_frames_at_times
 from .system_open import open_folder
 from .theme import (INK, INK_MUTED, INK_SOFT, IRIS, IRIS_DARK, IRIS_LIGHT, AMBER, AMBER_LIGHT, BG,
                     TEXT, CANVAS_BG, Stepper, apply_theme, card, mark_image)
@@ -30,6 +30,8 @@ NOTEBOOKS = ['00_acquisition.ipynb', '01_fundamentals_enhancement.ipynb',
              '02_segmentation_morphology.ipynb', '03_features_temporal.ipynb',
              '04_compression.ipynb']
 MODULE_NAMES = ['Acquisition', 'Fundamentals', 'Segmentation', 'Features & time', 'Compression']
+RECORD_TYPES = {'A': 'A — Dark to light', 'B': 'B — Light to dark'}
+RECORD_TYPE_PLACEHOLDER = 'Choose A or B'
 TOOLS = [('1. Eye ROI', 'roi'), ('2. Ruler endpoints', 'ruler'),
          ('3. Primary pupil', 'pupil0'), ('4. Secondary pupil', 'pupil1')]
 INSTRUCTIONS = {
@@ -152,6 +154,7 @@ class DesktopApp:
 
         # Tk variables
         self.video_var = tk.StringVar()
+        self.record_type_var = tk.StringVar(value=RECORD_TYPE_PLACEHOLDER)
         self.t1 = tk.StringVar(value='1.0')
         self.t2 = tk.StringVar(value='5.0')
         self.cal = tk.BooleanVar(value=False)
@@ -271,6 +274,12 @@ class DesktopApp:
         autowrap(details)
         self.browse_button = ttk.Button(video, text='Choose video…', command=self.browse)
         self.browse_button.pack(fill='x')
+        ttk.Label(video, text='Record type', style='Card.TLabel').pack(anchor='w', pady=(8, 2))
+        self.record_type_menu = ttk.Combobox(
+            video, textvariable=self.record_type_var, state='readonly',
+            values=list(RECORD_TYPES.values()))
+        self.record_type_menu.pack(fill='x')
+        self.record_type_menu.bind('<<ComboboxSelected>>', self.change_record_type)
 
         outer, frames = card(body, 'Frames to compare')
         outer.pack(fill='x', pady=(0, 8))
@@ -482,6 +491,8 @@ class DesktopApp:
 
     def add_tooltips(self):
         tips = [
+            (self.record_type_menu, 'A: light is switched on. B: light is switched off. '
+                                   'Choose this independently of the video filename.'),
             (self.browse_button, 'Pick the eye recording to analyze (mp4, mov, avi or mkv).'),
             (self.time1, 'Time in the recording (seconds) of the first comparison frame, '
                          'usually before the light change.'),
@@ -536,7 +547,8 @@ class DesktopApp:
     def browse(self):
         path = filedialog.askopenfilename(
             title='Choose eye recording',
-            filetypes=[('Videos', '*.mp4 *.mov *.avi *.mkv'), ('All files', '*')])
+            filetypes=[('Videos', ' '.join('*' + suffix for ext in VIDEO_EXTENSIONS
+                                          for suffix in (ext, ext.upper()))), ('All files', '*')])
         if not path:
             return
         self.status.set('Reading video metadata…')
@@ -559,6 +571,7 @@ class DesktopApp:
             self.view_mode = None
             self.image = None
             self.video_var.set(setup.video)
+            self.record_type_var.set(RECORD_TYPES.get(setup.effective_record_type, RECORD_TYPE_PLACEHOLDER))
             self.t1.set(str(setup.times[0]))
             self.t2.set(str(setup.times[1]))
             self.manual_pupils.set(setup.manual_pupils)
@@ -572,6 +585,14 @@ class DesktopApp:
             self.apply()
 
         self.task(load, loaded)
+
+    def change_record_type(self, event=None):
+        if not self.setup or self.busy:
+            return
+        self.setup.record_type = next(
+            (kind for kind, label in RECORD_TYPES.items() if label == self.record_type_var.get()), None)
+        self.store.save(self.setup)
+        self.refresh()
 
     def apply(self):
         if not self.setup or self.busy:
@@ -745,6 +766,7 @@ class DesktopApp:
         return 'Frames ready. Follow the checklist on the left: the ▶ step is what to do next.'
 
     def refresh(self):
+        self.record_type_menu.configure(state='disabled' if self.busy or self.setup is None else 'readonly')
         settings = [self.browse_button, self.apply_button, self.time1, self.time2, self.cal_toggle,
                     self.roi_toggle, self.pupil_toggle, self.gpu_toggle, self.distance_entry]
         for widget in settings:

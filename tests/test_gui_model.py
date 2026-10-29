@@ -39,6 +39,28 @@ class GuiModelTests(unittest.TestCase):
         self.video.write_bytes(b'changed video')
         self.assertIsNone(store.load(self.video))
 
+    def test_arbitrary_filename_requires_type_and_persists_choice(self):
+        video=self.root/'grabacion personal.MOV';video.write_bytes(b'video')
+        self.setup.video=str(video);self.setup.fingerprint=ProfileStore.fingerprint(video)
+        self.assertTrue(any('record type' in error for error in self.setup.missing()))
+        self.setup.record_type='B'
+        self.assertFalse(self.setup.missing())
+        self.base['module3']['record_type']='A'
+        cfg=effective_config(self.setup,self.base,self.root/'out',self.root)
+        self.assertEqual(cfg['module3']['record_type'],'B')
+        store=ProfileStore(self.root/'profiles');store.save(self.setup)
+        self.assertEqual(store.load(video).effective_record_type,'B')
+
+    def test_legacy_named_profile_infers_type_and_allows_override(self):
+        store=ProfileStore(self.root/'profiles');store.save(self.setup)
+        import json
+        path=store.path(self.video);data=json.loads(path.read_text());del data['record_type']
+        path.write_text(json.dumps(data))
+        restored=store.load(self.video)
+        self.assertEqual(restored.effective_record_type,'A')
+        restored.record_type='B'
+        self.assertEqual(effective_config(restored,self.base,self.root/'out',self.root)['module3']['record_type'],'B')
+
     def test_full_frame_and_calibration_off(self):
         self.setup.roi_enabled=False
         self.setup.ruler_points=[[0,0],[20,0]]

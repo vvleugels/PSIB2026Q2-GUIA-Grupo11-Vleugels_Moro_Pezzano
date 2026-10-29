@@ -56,7 +56,7 @@ class AutomaticSetupTests(unittest.TestCase):
         self.video=self.root/'video.mp4';self.video.write_bytes(b'video')
         self.manual=[{'center_xy':[20.,20.],'radius_px':8.}]*2
         self.automatic=[{'center_xy':[30.,25.],'radius_px':7.},{'center_xy':[32.,26.],'radius_px':5.}]
-        self.setup=Setup(str(self.video),160,120,6,ProfileStore.fingerprint(self.video),roi=[20,10,100,80],pupils=self.manual.copy())
+        self.setup=Setup(str(self.video),160,120,6,ProfileStore.fingerprint(self.video),roi=[20,10,100,80],pupils=self.manual.copy(),record_type='A')
         self.base={'frames':{},'roi':{},'calibration':{},'module2':{},'module3':{}}
 
     def tearDown(self):self.temp.cleanup()

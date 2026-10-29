@@ -142,6 +142,11 @@ For manual YAML configuration, use forward slashes in Windows paths, for example
 
 ## Run an analysis
 
+Video filenames are unrestricted (MP4, MOV, AVI or MKV). Under **Record type**,
+choose **A — Dark to light** or **B — Light to dark**. Names starting with `A_`
+or `B_` preselect that type; you can change it. The choice is saved per video.
+For manual notebook runs with other names, set `module3.record_type: A` or `B`.
+
 New to the app? Follow the [step-by-step GUI walkthrough](documentation.md#3-desktop-workflow-a-guided-walkthrough).
 The documentation also maps [each button to its Python functions](documentation.md#51-functions-behind-the-buttons).
 See the [frontend guide](documentation.md#55-frontend-structure-and-layout) for widgets, layout, events and image rendering.
@@ -159,8 +164,8 @@ restore the settings. **Advanced options** expands the manual pupil-selection
 and OpenCL controls. Hover over controls for short explanations. The status line
 above the progress bar says what is missing.
 
-1. Choose a video, enter the primary/secondary timestamps in seconds, and click
-   **Apply / load frames**.
+1. Choose a video and confirm its **Record type** (A or B). Enter the
+   primary/secondary timestamps in seconds and click **Apply / load frames**.
 2. Enable **Select eye ROI** to draw a crop; disable it for full-frame measurements.
 3. Enable **Calibration** to select two ruler marks a known distance apart,
    normally 1 cm. Disable it for pixel-only measurements.
@@ -272,8 +277,11 @@ python validate_notebooks.py --config /absolute/path/run_config.yaml --json-even
 ```
 
 Prepared configurations must include numeric pupil initializations (manual or
-GUI-estimated). Kernel execution needs local ports. See [documentation.md](documentation.md) for exact configuration,
-coordinate and calibration conventions.
+GUI-estimated), a manual/full-frame ROI, and manual ruler points when calibration
+is enabled. With arbitrary filenames, set `module3.record_type` explicitly.
+Kernel execution needs local ports. See the
+[terminal execution guide](documentation.md#23-notebooks-and-terminal-execution)
+for prepared-run configuration and report paths.
 
 ## Verify changes
 
@@ -334,11 +342,8 @@ are processed in memory by default. Set `module4.save_all_frames: true` in your
 configuration to save every temporal JPEG for a future example recording; these
 bulk files are ignored by Git. The example video and publication set will be
 chosen separately. No additional packages are required.
+
 # PSIB — Análisis del reflejo pupilar a la luz
-
-
-
-
 
 Video del ojo → segmentación de la pupila → curva de área/diámetro → estimaciones
 exploratorias de la respuesta, siguiendo la guía práctica de Procesamiento de
@@ -487,6 +492,12 @@ lugar de copiar una carpeta `.venv` de Linux. Consultá la [documentación de en
 
 ## Ejecutar un análisis
 
+El video puede tener cualquier nombre (MP4, MOV, AVI o MKV). En **Record type**,
+elegí **A — Dark to light** (oscuro → luz) o **B — Light to dark** (luz → oscuro).
+Los nombres que empiezan con `A_` o `B_` preseleccionan el tipo; podés cambiarlo.
+La elección se guarda por video. Para ejecutar notebooks manualmente con otros
+nombres, configurá `module3.record_type: A` o `B`.
+
 ¿Es tu primera vez con la aplicación? Seguí la [guía paso a paso de la GUI](documentation.md#3-desktop-workflow-a-guided-walkthrough).
 La documentación también relaciona [cada botón con sus funciones de Python](documentation.md#51-functions-behind-the-buttons).
 Consultá la [guía del frontend](documentation.md#55-frontend-structure-and-layout) para ver widgets, diseño, eventos y renderizado de imágenes.
@@ -505,8 +516,8 @@ imagen o restaurar los ajustes. **Advanced options** despliega los controles de
 selección manual de la pupila y de OpenCL. Pasá el cursor sobre los controles para ver
 explicaciones breves. La línea de estado sobre la barra de progreso indica qué falta.
 
-1. Elegí un video, ingresá las marcas de tiempo primaria/secundaria en segundos y hacé
-   clic en **Apply / load frames**.
+1. Elegí un video y confirmá su **Record type** (A o B). Ingresá las marcas de
+   tiempo primaria/secundaria en segundos y hacé clic en **Apply / load frames**.
 2. Activá **Select eye ROI** para dibujar un recorte; desactivalo para mediciones de
    cuadro completo.
 3. Activá **Calibration** para seleccionar dos marcas de una regla separadas por una
@@ -631,9 +642,11 @@ python validate_notebooks.py --config /absolute/path/run_config.yaml --json-even
 ```
 
 Las configuraciones preparadas deben incluir inicializaciones numéricas de la pupila
-(manuales o estimadas por la GUI). La ejecución del kernel necesita puertos locales.
-Consultá [documentation.md](documentation.md) para ver las convenciones exactas de
-configuración, coordenadas y calibración.
+(manuales o estimadas por la GUI), un ROI manual/de cuadro completo y puntos de
+regla manuales si la calibración está activada. Con nombres libres, configurá
+`module3.record_type` explícitamente. El kernel necesita puertos locales.
+Consultá la [guía de ejecución por terminal](documentation.md#23-notebooks-and-terminal-execution)
+para preparar la configuración y elegir la carpeta de informes.
 
 ## Verificar cambios
 
